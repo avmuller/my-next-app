@@ -1,9 +1,19 @@
+// src/app/songs/[category]/[sub]/page.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { demoSongs } from "@/data/demoSongs";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  QueryConstraint,
+} from "firebase/firestore";
+import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
+import { primaryCategories } from "@/data/categories"; // ייבוא הקטגוריות הראשיות
 
 export default function SongsBySubCategory() {
   const router = useRouter();
@@ -11,9 +21,13 @@ export default function SongsBySubCategory() {
   const { category, sub } = params;
   const decodedSub = decodeURIComponent(sub);
 
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"title" | "key">("title");
+  const [queryText, setQueryText] = useState("");
+  // **שינוי:** המיון לפי "key" משתמש בשם השדה המעודכן "Key"
+  const [sort, setSort] = useState<"title" | "Key">("title");
+  const [loading, setLoading] = useState(true);
+  const [songs, setSongs] = useState<Song[]>([]);
 
+  // רשימת הסולמות למיון
   const musicalOrder = [
     "C",
     "C#",
@@ -34,38 +48,95 @@ export default function SongsBySubCategory() {
     "B",
   ];
 
-  const filtered = useMemo(() => {
-    let songs = demoSongs.filter((song) => {
-      if (category === "artists") return song.artist === decodedSub;
-      if (category === "genres") return song.genres.includes(decodedSub);
-      if (category === "styles") return song.styles.includes(decodedSub);
-      if (category === "events") return song.events.includes(decodedSub);
-      return false;
-    });
+  // פונקציה אסינכרונית לטעינת נתונים מ-Firebase
+  const fetchSongs = async () => {
+    setLoading(true);
+    try {
+      const songsCollectionRef = collection(db, "songs");
 
-    if (query) {
-      const q = query.toLowerCase();
-      songs = songs.filter(
+      // **שינוי קריטי:** מציאת שם השדה האמיתי (כגון 'Genre' או 'Key')
+      const currentCategory = primaryCategories.find(
+        (c) => c.key.toLowerCase() === category.toLowerCase()
+      );
+      const fieldName = currentCategory?.key || category;
+
+      const isArrayField = ["Genre", "Style", "Event"].includes(fieldName);
+
+      // **הגבלת הקריאה ב-Firestore:**
+      const constraints: QueryConstraint[] = [];
+
+      if (isArrayField) {
+        // עבור שדות שהם מערכים (Genre, Style, Event)
+        constraints.push(where(fieldName, "array-contains", decodedSub));
+      } else {
+        // עבור שדות שהם מחרוזות יחידות (Singer, Key, Beat, Album וכו')
+        constraints.push(where(fieldName, "==", decodedSub));
+      }
+
+      const q = query(songsCollectionRef, ...constraints);
+      const songSnapshot = await getDocs(q);
+
+      const fetchedSongs: Song[] = songSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        console.log("Fetched song data:", data);
+        return {
+          id: doc.id,
+          ...data,
+          // **עדכון: מיפוי נכון של שדות המערך לפי הכתיב המעודכן (Genre, Style, Event)**
+          Genre: data.Genre || [],
+          Event: data.Event || [],
+        } as Song;
+      });
+
+      setSongs(fetchedSongs);
+    } catch (error) {
+      console.error("Error fetching filtered songs:", error);
+      setSongs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // טעינת הנתונים בפעם הראשונה
+  useEffect(() => {
+    fetchSongs();
+  }, [category, sub]);
+
+  const filteredAndSortedSongs = useMemo(() => {
+    let resultSongs = songs;
+
+    // 1. סינון לפי שאילתת טקסט (חיפוש)
+    if (queryText) {
+      const q = queryText.toLowerCase();
+      resultSongs = resultSongs.filter(
+        // **שינוי:** חיפוש לפי שדה title ו-Key
         (s) =>
-          s.title.toLowerCase().includes(q) || s.key.toLowerCase().includes(q)
+          s.title.toLowerCase().includes(q) || s.Key.toLowerCase().includes(q)
       );
     }
 
+    // 2. מיון
     if (sort === "title") {
-      songs = [...songs].sort((a, b) => a.title.localeCompare(b.title, "he"));
-    } else if (sort === "key") {
-      songs = [...songs].sort((a, b) => {
-        const cleanA = a.key.replace("m", "");
-        const cleanB = b.key.replace("m", "");
+      resultSongs = [...resultSongs].sort((a, b) =>
+        a.title.localeCompare(b.title, "he")
+      );
+    } else if (sort === "Key") {
+      // **שינוי:** מיון לפי "Key"
+      resultSongs = [...resultSongs].sort((a, b) => {
+        // **שינוי:** שימוש בשדה Key
+        const cleanA = a.Key.replace("m", "");
+        const cleanB = b.Key.replace("m", "");
         const indexA = musicalOrder.indexOf(cleanA);
         const indexB = musicalOrder.indexOf(cleanB);
-        if (indexA === -1 || indexB === -1) return a.key.localeCompare(b.key);
+
+        // **שינוי:** שימוש בשדה Key
+        if (indexA === -1 || indexB === -1) return a.Key.localeCompare(b.Key);
         return indexA - indexB;
       });
     }
 
-    return songs;
-  }, [category, decodedSub, query, sort]);
+    return resultSongs;
+  }, [songs, queryText, sort]); // תלויות: השירים שנטענו, טקסט החיפוש, ובחירת המיון
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white px-4 py-4 space-y-5">
@@ -88,8 +159,8 @@ export default function SongsBySubCategory() {
           type="text"
           placeholder="חפש לפי שם או סולם..."
           className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
         />
       </div>
 
@@ -107,10 +178,10 @@ export default function SongsBySubCategory() {
           מיין לפי שם
         </button>
         <button
-          onClick={() => setSort("key")}
+          onClick={() => setSort("Key")} // **שינוי:** מיון לפי "Key"
           className={`flex-1 min-w-[120px] rounded-lg px-3 py-2 text-sm font-medium transition
             ${
-              sort === "key"
+              sort === "Key"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
@@ -119,16 +190,22 @@ export default function SongsBySubCategory() {
         </button>
       </div>
 
-      {/* Songs grid */}
-      <div className="grid gap-3 pb-24">
-        {filtered.length > 0 ? (
-          filtered.map((song) => <SongCard key={song.id} song={song} />)
-        ) : (
-          <p className="text-gray-500 text-center py-10">
-            אין שירים זמינים בתת־קטגוריה זו 🎵
-          </p>
-        )}
-      </div>
+      {/* Loading/Error/Content */}
+      {loading ? (
+        <p className="text-center text-blue-600 py-10">טוען שירים...</p>
+      ) : (
+        <div className="grid gap-3 pb-24">
+          {filteredAndSortedSongs.length > 0 ? (
+            filteredAndSortedSongs.map((song) => (
+              <SongCard key={song.id} song={song} />
+            ))
+          ) : (
+            <p className="text-gray-500 text-center py-10">
+              לא נמצאו שירים התואמים ל"{decodedSub}" 🎵
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

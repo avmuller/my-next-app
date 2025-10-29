@@ -1,3 +1,4 @@
+// src/app/layout.tsx (UPDATED)
 import "./globals.css";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
@@ -14,9 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="he" dir="rtl">
-      <body>
+      {/* שמירת הגבלת הרוחב לנייד */}
+      <body className="mx-auto max-w-screen-sm bg-gray-900">
         <Header />
-        <main className="container-narrow py-4 pb-24">{children}</main>
+        {/* הסרת ה-p-4 שהיה קיים קודם כדי למנוע כפילות. נשאיר pb-24 לניווט התחתון. */}
+        <main className="pb-24 flex-grow">{children}</main>
         <BottomNav />
       </body>
     </html>
