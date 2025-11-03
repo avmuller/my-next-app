@@ -6,6 +6,9 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
+import clsx from "clsx";
+// ייבוא לוגיקת המיון המאוחדת
+import { createCombinedSortComparator } from "@/lib/sortingUtils";
 
 // שדות שאנו רוצים לחפש בהם
 const SEARCHABLE_FIELDS: (keyof Song)[] = [
@@ -15,6 +18,7 @@ const SEARCHABLE_FIELDS: (keyof Song)[] = [
   "Beat",
   "Theme",
   "Singer",
+  "year",
   // שדות מערך נחפש במיפוי
   "Genre",
   "Event",
@@ -24,28 +28,17 @@ export default function SearchPage() {
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(false);
   const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const [sort, setSort] = useState<"title" | "Key">("title");
 
-  // רשימת הסולמות למיון
-  const musicalOrder = [
-    "C",
-    "C#",
-    "Db",
-    "D",
-    "D#",
-    "Eb",
-    "E",
-    "F",
-    "F#",
-    "Gb",
-    "G",
-    "G#",
-    "Ab",
-    "A",
-    "A#",
-    "Bb",
-    "B",
-  ];
+  // **מצבי המיון (ON/OFF) - מאפשרים שליטה כפולה**
+  const [sortByBeat, setSortByBeat] = useState(false);
+  const [sortByKey, setSortByKey] = useState(false);
+
+  // **הוספת Callback: עדכון המצב המקומי לאחר מחיקה מוצלחת**
+  const handleSongDelete = (deletedSongId: string) => {
+    setAllSongs((prevSongs) =>
+      prevSongs.filter((song) => song.id !== deletedSongId)
+    );
+  };
 
   // טוען את כל השירים פעם אחת
   useEffect(() => {
@@ -53,8 +46,6 @@ export default function SearchPage() {
       setLoading(true);
       try {
         const songsCollectionRef = collection(db, "songs");
-        // **הערה:** חיפוש חופשי (Fuzzy Search) לא נתמך ישירות ב-Firestore,
-        // לכן אנחנו מביאים את כל הנתונים ומסננים בצד הלקוח.
         const songSnapshot = await getDocs(songsCollectionRef);
 
         const fetchedSongs: Song[] = songSnapshot.docs.map((doc) => {
@@ -64,6 +55,7 @@ export default function SearchPage() {
             ...data,
             Genre: data.Genre || [],
             Event: data.Event || [],
+            Season: data.Season || [],
           } as Song;
         });
         setAllSongs(fetchedSongs);
@@ -81,18 +73,14 @@ export default function SearchPage() {
     let resultSongs = allSongs;
     const q = queryText.toLowerCase().trim();
 
-    // 1. סינון לפי שאילתת טקסט (חיפוש חופשי)
+    // 1. Filtering logic
     if (q.length > 1) {
-      // חיפוש רק אחרי 2 תווים ומעלה
       resultSongs = resultSongs.filter((song) => {
-        // בודק אם השאילתה קיימת באחד מהשדות הניתנים לחיפוש
         return SEARCHABLE_FIELDS.some((field) => {
           const value = (song as any)[field];
           if (Array.isArray(value)) {
-            // עבור מערכים (Genre, Style), בודק אם אחד האיברים מכיל את השאילתה
-            return value.some((item) => item.toLowerCase().includes(q));
+            return value.some((item) => String(item).toLowerCase().includes(q));
           }
-          // עבור מחרוזות יחידות (Title, Artist, Key וכו')
           return String(value || "")
             .toLowerCase()
             .includes(q);
@@ -100,27 +88,25 @@ export default function SearchPage() {
       });
     }
 
-    // 2. מיון (אותה לוגיקה כמו בדף תת-הקטגוריות)
-    if (sort === "title") {
-      resultSongs = [...resultSongs].sort((a, b) =>
-        a.title.localeCompare(b.title, "he")
-      );
-    } else if (sort === "Key") {
-      resultSongs = [...resultSongs].sort((a, b) => {
-        const cleanA = a.Key.replace("m", "");
-        const cleanB = b.Key.replace("m", "");
-        const indexA = musicalOrder.indexOf(cleanA);
-        const indexB = musicalOrder.indexOf(cleanB);
-        if (indexA === -1 || indexB === -1) return a.Key.localeCompare(b.Key);
-        return indexA - indexB;
-      });
+    // 2. Sorting Logic (Multi-level Hierarchy)
+    resultSongs = [...resultSongs];
+
+    // **שימוש בפונקציית המיון המאוחדת:**
+    const comparator = createCombinedSortComparator(sortByBeat, sortByKey);
+
+    // הפעלת המיון רק אם אחד מהכפתורים נבחר
+    if (sortByBeat || sortByKey) {
+      resultSongs.sort(comparator);
+    } else {
+      // ברירת מחדל: תמיד מסודר לפי שם (א-ב)
+      resultSongs.sort((a, b) => a.title.localeCompare(b.title, "he"));
     }
 
     return resultSongs;
-  }, [allSongs, queryText, sort]);
+  }, [allSongs, queryText, sortByBeat, sortByKey]);
 
   return (
-    <div className="min-h-screen space-y-5 p-4">
+    <div className="min-h-screen space-y-5 p-4 bg-gray-900">
       <h1 className="text-2xl font-bold text-gray-50 mb-6">חיפוש שירים 🔎</h1>
 
       {/* שדה חיפוש ראשי */}
@@ -134,29 +120,39 @@ export default function SearchPage() {
         />
       </div>
 
-      {/* כפתורי מיון */}
+      {/* **כפתורי מיון ON/OFF** */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setSort("title")}
-          className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition ${
-            sort === "title"
+          onClick={() => setSortByBeat(!sortByBeat)}
+          className={clsx(
+            "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
+            sortByBeat
               ? "bg-teal-500 text-gray-900"
               : "bg-gray-700 text-gray-50 hover:bg-gray-600"
-          }`}
+          )}
         >
-          מיין לפי שם
+          מיין לפי מקצב 🥁
         </button>
         <button
-          onClick={() => setSort("Key")}
-          className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition ${
-            sort === "Key"
+          onClick={() => setSortByKey(!sortByKey)}
+          className={clsx(
+            "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
+            sortByKey
               ? "bg-teal-500 text-gray-900"
               : "bg-gray-700 text-gray-50 hover:bg-gray-600"
-          }`}
+          )}
         >
-          מיין לפי סולם
+          מיין לפי סולם 🎹
         </button>
       </div>
+
+      {/* הודעה על מיון נוכחי */}
+      <p className="text-xs text-gray-400 text-center pt-2">
+        {sortByBeat && sortByKey && "ממוין: מקצב > סולם > שם (משולב)"}
+        {sortByBeat && !sortByKey && "ממוין: מקצב > שם"}
+        {!sortByBeat && sortByKey && "ממוין: סולם > שם"}
+        {!sortByBeat && !sortByKey && "ממוין: שם (א-ב)"}
+      </p>
 
       {/* תוצאות חיפוש */}
       {loading && !allSongs.length && (
@@ -181,7 +177,11 @@ export default function SearchPage() {
 
       <div className="grid gap-4 pb-4">
         {filteredAndSortedSongs.map((song) => (
-          <SongCard key={song.id} song={song} />
+          <SongCard
+            key={song.id}
+            song={song}
+            onDeleteSuccess={handleSongDelete}
+          />
         ))}
       </div>
     </div>

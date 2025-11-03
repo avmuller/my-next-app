@@ -8,16 +8,20 @@ export interface Song {
   title: string; // Song
   Beat: string; // **חדש: שדה Beat**
   Key: string;
+  year: number;
   Genre: string[];
   Event: string[];
   Theme: string;
   Composer: string;
   Singer: string;
-  Season: string;
+  Season: string[];
   Album: string;
   hasidut: string;
   Lyrics: string;
   createdAt?: Date;
 }
 
-export type SongForm = Omit<Song, "id" | "createdAt">;
+// SongForm יכלול את year כמחרוזת כי זה מה שנקבל מה-Input
+export type SongForm = Omit<Song, "id" | "createdAt" | "year"> & {
+  year: string;
+};

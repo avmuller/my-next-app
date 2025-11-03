@@ -1,41 +1,270 @@
-// src/app/admin/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  getDoc,
+  getDocs, // נשאר עבור Autocomplete
+} from "firebase/firestore";
 import * as XLSX from "xlsx";
-import { Song, SongForm } from "@/types/song"; // ייבוא הטיפוסים החדשים (ללא BPM)
+import { Song, SongForm } from "@/types/song";
+import { useSearchParams, useRouter } from "next/navigation";
 
-// שינוי: הסרת BPM מהמצב ההתחלתי
+// **1. הגדרת קבוצות שדות ברורות**
+const SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE: (keyof Song)[] = [
+  "Singer",
+  "Composer",
+  "Key",
+  "Beat", // Beat נשאר כאן עבור ה-datalist
+  "Theme",
+  "Album",
+  "hasidut",
+];
+
+// שדות מרובי ערכים (אלו שמושבתת בהם ההשלמה)
+const MULTI_VALUE_FIELDS: (keyof Song)[] = ["Genre", "Event", "Season"];
+
+// שדות שאנו מביאים מ-DB לצורך השלמה אוטומטית (איחוד של שתי הרשימות)
+const FIELDS_FOR_UNIQUE_FETCH = [
+  ...SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE,
+  ...MULTI_VALUE_FIELDS,
+];
+
+// מצב ראשוני לטופס
 const initialSongState: SongForm = {
+  year: "",
   title: "",
-  Beat: "", // **חדש: מצב התחלתי**
+  Beat: "",
   Key: "",
   Genre: [],
   Event: [],
   Theme: "",
   Composer: "",
   Singer: "",
-  Season: "",
+  Season: [],
   Album: "",
   hasidut: "",
   Lyrics: "",
 };
 
+// פונקציית עזר לניקוי ופיצול מחרוזת למערך
+const splitAndClean: (value: string | string[]) => string[] = (value) => {
+  if (Array.isArray(value)) return value.filter((v) => v && v.trim() !== "");
+  if (typeof value !== "string") return [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+};
+
+// ---------------------- קומפוננטת TOAST ----------------------
+const Toast = ({
+  message,
+  type,
+  onClose,
+}: {
+  message: string;
+  type: "success" | "error" | "info";
+  onClose: () => void;
+}) => {
+  if (!message) return null;
+
+  const bgColor =
+    type === "success"
+      ? "bg-green-600"
+      : type === "error"
+      ? "bg-red-600"
+      : "bg-blue-600";
+  const textColor = "text-white";
+
+  return (
+    <div
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 rounded-xl shadow-2xl ${bgColor} ${textColor} transition-all duration-300`}
+      style={{ minWidth: "250px" }}
+    >
+      <div className="flex justify-between items-center">
+        <p className="font-semibold">{message}</p>
+        <button onClick={onClose} className={`text-xl ${textColor} ml-4`}>
+          &times;
+        </button>
+      </div>
+    </div>
+  );
+};
+// ----------------------------------------------------------------
+
 export default function AdminPage() {
   const [song, setSong] = useState<SongForm>(initialSongState);
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
   const [excelData, setExcelData] = useState<any[]>([]);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [uniqueCategories, setUniqueCategories] = useState<
+    Record<string, string[]>
+  >({});
 
-  // פונקציית עזר לניקוי ופיצול מחרוזת למערך, או החזרת מערך ריק
-  const splitAndClean = (value: string | string[]): string[] => {
-    if (Array.isArray(value)) return value.filter((v) => v && v.trim() !== "");
-    if (typeof value !== "string") return [];
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editIdFromURL = searchParams.get("editId");
 
-    return value
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
+  const showToast = (
+    msg: string,
+    type: "success" | "error" | "info" = "info"
+  ) => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // ---------------------- לוגיקת השלמה אוטומטית (נשמרה) ----------------------
+  useEffect(() => {
+    fetchUniqueCategories();
+  }, []);
+
+  useEffect(() => {
+    if (editIdFromURL) {
+      fetchSongForEdit(editIdFromURL);
+    } else {
+      setIsEditing(null);
+      setSong(initialSongState);
+    }
+  }, [editIdFromURL]);
+
+  const fetchUniqueCategories = async () => {
+    try {
+      const songSnapshot = await getDocs(collection(db, "songs"));
+      const allData: Song[] = songSnapshot.docs.map(
+        (doc) => doc.data() as Song
+      );
+
+      const uniqueData: Record<
+        string,
+        Set<string>
+      > = FIELDS_FOR_UNIQUE_FETCH.reduce((acc, field) => {
+        acc[field as string] = new Set();
+        return acc;
+      }, {} as Record<string, Set<string>>);
+
+      allData.forEach((song) => {
+        FIELDS_FOR_UNIQUE_FETCH.forEach((field) => {
+          const value = (song as any)[field];
+
+          if (Array.isArray(value)) {
+            value.forEach(
+              (item) => item && uniqueData[field as string].add(item)
+            );
+          } else if (value) {
+            uniqueData[field as string].add(String(value));
+          }
+        });
+      });
+
+      const result: Record<string, string[]> = {};
+      Object.keys(uniqueData).forEach((key) => {
+        result[key] = Array.from(uniqueData[key]).sort((a, b) =>
+          a.localeCompare(b, "he")
+        );
+      });
+
+      setUniqueCategories(result);
+    } catch (error) {
+      console.error("Error fetching unique categories:", error);
+    }
+  };
+  // ----------------------------------------------------------------
+
+  // ---------------------- לוגיקת CRUD (נשמרה) ----------------------
+  const fetchSongForEdit = async (id: string) => {
+    try {
+      const docRef = doc(db, "songs", id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setIsEditing(id);
+
+        setSong({
+          title: data.title,
+          Beat: data.Beat,
+          Key: data.Key,
+          Theme: data.Theme,
+          Composer: data.Composer,
+          Singer: data.Singer,
+          Album: data.Album,
+          hasidut: data.hasidut,
+          Lyrics: data.Lyrics,
+          year: String(data.year || ""),
+          Season: Array.isArray(data.Season) ? data.Season.join(", ") : "",
+          Genre: Array.isArray(data.Genre) ? data.Genre.join(", ") : "",
+          Event: Array.isArray(data.Event) ? data.Event.join(", ") : "",
+        } as unknown as SongForm);
+      } else {
+        showToast(`שגיאה: שיר עם ID ${id} לא נמצא.`, "error");
+        setIsEditing(null);
+        router.replace("/admin");
+      }
+    } catch (error) {
+      showToast("שגיאה בטעינת נתוני השיר לעריכה.", "error");
+      setIsEditing(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(null);
+    setSong(initialSongState);
+    showToast("העריכה בוטלה.", "info");
+    router.replace("/admin");
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      // **הסרת לוגיקת Rhythm Changes מ-Beat**
+      let finalBeat = song.Beat.trim();
+
+      // **הסרת לוגיקת Rhythm Changes מ-Key**
+      let finalKey = song.Key.trim();
+
+      const processedSongData = {
+        title: song.title,
+        Beat: finalBeat, // Beat נשמר כפי שהוזן (מחרוזת)
+        Key: finalKey, // Key נשמר כפי שהוזן (מחרוזת)
+        Theme: song.Theme,
+        Composer: song.Composer,
+        Singer: song.Singer,
+        Album: song.Album,
+        hasidut: song.hasidut,
+        Lyrics: song.Lyrics,
+        Season: splitAndClean(song.Season as unknown as string),
+        year: parseInt(song.year) || 0,
+        Genre: splitAndClean(song.Genre as unknown as string),
+        Event: splitAndClean(song.Event as unknown as string),
+        createdAt: new Date(),
+      };
+
+      if (isEditing) {
+        const songRef = doc(db, "songs", isEditing);
+        await updateDoc(songRef, processedSongData);
+        showToast("✔️ השיר עודכן בהצלחה!", "success");
+        setIsEditing(null);
+        router.replace("/admin");
+      } else {
+        await addDoc(collection(db, "songs"), processedSongData);
+        showToast("➕ השיר נוסף בהצלחה!", "success");
+        fetchUniqueCategories();
+      }
+
+      setSong(initialSongState);
+    } catch (error) {
+      console.error("Error adding/updating document: ", error);
+      showToast("❌ שגיאה בשמירת שיר. בדוק את הקונסול.", "error");
+    }
   };
 
   const handleManualChange = (
@@ -43,36 +272,6 @@ export default function AdminPage() {
   ) => {
     const { name, value } = e.target;
     setSong((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage("מעבד...");
-
-    try {
-      const songData: Omit<Song, "id"> = {
-        title: song.title,
-        Beat: song.Beat, // **שימוש בשדה Beat**
-        Key: song.Key,
-        Genre: splitAndClean(song.Genre as unknown as string),
-        Event: splitAndClean(song.Event as unknown as string),
-        Theme: song.Theme,
-        Composer: song.Composer,
-        Singer: song.Singer,
-        Season: song.Season,
-        Album: song.Album,
-        hasidut: song.hasidut,
-        Lyrics: song.Lyrics,
-        createdAt: new Date(),
-      };
-
-      const docRef = await addDoc(collection(db, "songs"), songData);
-      setMessage(`השיר נוסף בהצלחה! ID: ${docRef.id}`);
-      setSong(initialSongState);
-    } catch (error) {
-      console.error("Error adding document: ", error);
-      setMessage("שגיאה בהוספת השיר. בדוק את הקונסול.");
-    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,36 +286,41 @@ export default function AdminPage() {
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet);
       setExcelData(json);
-      setMessage(`קובץ Excel נטען. נמצאו ${json.length} שורות.`);
+      showToast(`קובץ Excel נטען. נמצאו ${json.length} שורות.`, "info");
     };
     reader.readAsBinaryString(file);
   };
 
   const handleImportExcel = async () => {
     if (excelData.length === 0) {
-      setMessage("לא נמצאו נתונים לייבוא.");
+      showToast("לא נמצאו נתונים לייבוא.", "info");
       return;
     }
 
-    setMessage(`מייבא ${excelData.length} שירים...`);
     let successfulImports = 0;
     const songsCollection = collection(db, "songs");
 
     for (const row of excelData) {
       try {
+        // **הסרת לוגיקת Rhythm Changes מ-Beat**
+        let excelBeat = row["Beat"] || "";
+        // **הסרת לוגיקת Rhythm Changes מ-Key**
+        let excelKey = row["Key"] || "";
+
         const songData: Omit<Song, "id"> = {
           title: row["Song"] || row["title"] || "",
-          Beat: row["Beat"] || "", // **שימוש בשם העמודה Beat**
-          Key: row["Key"] || "",
-          Genre: splitAndClean(row["Genre"]),
-          Event: splitAndClean(row["Event"]),
+          Beat: excelBeat, // Beat נשמר כפי שהוזן (מחרוזת)
+          Key: excelKey, // Key נשמר כפי שהוזן (מחרוזת)
           Theme: row["Theme"] || "",
           Composer: row["Composer"] || "",
           Singer: row["Singer"] || "",
-          Season: row["Season"] || "",
+          Season: splitAndClean(row["Season"]),
           Album: row["Album"] || "",
           hasidut: row["hasidut"] || "",
           Lyrics: row["Lyrics"] || "",
+          year: parseInt(row["Year"] || "0") || 0,
+          Genre: splitAndClean(row["Genre"]),
+          Event: splitAndClean(row["Event"]),
           createdAt: new Date(),
         };
 
@@ -127,64 +331,115 @@ export default function AdminPage() {
       }
     }
 
-    setMessage(`הייבוא הסתיים! ${successfulImports} שירים יובאו בהצלחה.`);
+    showToast(
+      `הייבוא הסתיים! ${successfulImports} שירים יובאו בהצלחה.`,
+      "success"
+    );
     setExcelData([]);
+    fetchUniqueCategories(); // רענון נתוני ההשלמה האוטומטית
   };
+  // ----------------------------------------------------------------
 
   const formFields = Object.keys(initialSongState);
 
   return (
-    <main className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6 text-center">פנל ניהול שירים</h1>
-
-      {/* הודעות סטטוס */}
-      {message && (
-        <div className="alert alert-info mb-4 p-3 bg-blue-100 text-blue-800 rounded">
-          {message}
-        </div>
+    <main className="mx-auto max-w-4xl p-4">
+      {/* **הודעה קופצת (Toast)** */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
-      {/* טופס הוספה ידנית */}
-      <section className="mb-8 border p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">הוספת שיר יחיד</h2>
+      <h1 className="text-3xl font-bold mb-6 text-center text-gray-50">
+        פנל ניהול שירים 🎵
+      </h1>
+
+      {/* הטופס */}
+      <section className="mb-8 p-6 rounded-lg shadow-2xl bg-gray-900">
+        <h2 className="text-2xl font-semibold mb-4 text-white">
+          {isEditing ? `עריכת שיר: ${song.title}` : "הוספת שיר יחיד"}
+        </h2>
+
         <form onSubmit={handleManualSubmit} className="grid grid-cols-2 gap-4">
-          {/* שינוי: רשימת השדות לא כוללת BPM */}
-          {formFields.map((key) => (
-            <div key={key}>
-              <label
-                htmlFor={key}
-                className="block text-sm font-medium text-gray-300"
-              >
-                {key.charAt(0).toUpperCase() + key.slice(1)}
-                {/* הערה לשדות המערך */}
-                {["genres", "styles", "events"].includes(key) &&
-                  " (מופרד בפסיקים)"}
-              </label>
-              <input
-                type={"text"} // כל השדות חזרו ל-text
-                name={key}
-                id={key}
-                value={(song as any)[key]}
-                onChange={handleManualChange}
-                required={key === "title" || key === "artist" || key === "key"}
-                className="mt-1 block w-full border border-gray-600 rounded-md shadow-sm p-2 bg-gray-700 text-gray-50 placeholder-gray-400"
-              />
-            </div>
-          ))}
-          <div className="col-span-2">
+          {formFields.map((key) => {
+            const isMultiValue = MULTI_VALUE_FIELDS.includes(key as keyof Song);
+            const isAutocomplete =
+              SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE.includes(key as keyof Song);
+            // **שינוי 4: Key הוסר משדות החובה**
+            const isRequired = key === "title" || key === "Singer";
+
+            return (
+              <div key={key}>
+                <label
+                  htmlFor={key}
+                  className="block text-sm font-medium text-white"
+                >
+                  {key === "title"
+                    ? "Title (Song)"
+                    : key.charAt(0).toUpperCase() + key.slice(1)}
+                  {key === "year" && " (שנה)"}
+                  {isMultiValue && " (מופרד בפסיקים)"}
+                </label>
+                <input
+                  type={key === "year" ? "number" : "text"}
+                  name={key}
+                  id={key}
+                  list={isAutocomplete ? `datalist-${key}` : undefined}
+                  value={
+                    isMultiValue
+                      ? (
+                          song[key as keyof SongForm] as string[] | string
+                        )?.toString()
+                      : (song[key as keyof SongForm] as string) || ""
+                  }
+                  onChange={handleManualChange}
+                  required={isRequired}
+                  className="mt-1 block w-full border border-gray-700 rounded-md shadow-sm p-2 bg-gray-800 text-gray-50 placeholder-gray-500"
+                />
+
+                {/* הגדרת ה-DATALIST (רק לשדות ערך יחיד) */}
+                {isAutocomplete && uniqueCategories[key] && (
+                  <datalist id={`datalist-${key}`}>
+                    {uniqueCategories[key].map((option) => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                )}
+              </div>
+            );
+          })}
+          <div className="col-span-2 flex gap-4">
             <button
               type="submit"
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              className={`flex-1 py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white ${
+                isEditing
+                  ? "bg-blue-600 hover:bg-blue-500"
+                  : "bg-green-600 hover:bg-green-500" // ירוק להוספה
+              }`}
             >
-              הוסף שיר
+              {isEditing ? "✔️ שמירת שינויים" : "➕ הוסף שיר חדש"}
             </button>
+            {isEditing && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="w-1/4 py-2 px-4 rounded-md shadow-sm text-sm font-medium bg-gray-600 hover:bg-gray-500 text-white"
+              >
+                ביטול
+              </button>
+            )}
           </div>
         </form>
       </section>
 
       {/* יבוא מ-Excel */}
-      <section className="mb-8 border p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">ייבוא שירים מ-Excel</h2>
+      <section className="mb-8 p-6 rounded-lg shadow-md bg-gray-900">
+        <h2 className="text-2xl font-semibold mb-4 text-white">
+          ייבוא שירים מ-Excel
+        </h2>
         <div className="flex flex-col gap-4">
           <input
             type="file"
@@ -198,7 +453,7 @@ export default function AdminPage() {
             className={`py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white ${
               excelData.length > 0
                 ? "bg-purple-600 hover:bg-purple-700"
-                : "bg-gray-400 cursor-not-allowed"
+                : "bg-gray-600 cursor-not-allowed"
             }`}
           >
             ייבא {excelData.length} שירים ל-Firebase
