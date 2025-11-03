@@ -2,10 +2,11 @@
 import "./globals.css";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "בחירת שירים לתזמורות",
-  description: "אפליקציית ניהול ובחירת רפרטואר מוזיקלי",
+  description: "אפליקdziית ניהול ובחירת רפרטואר מוזיקלי",
 };
 
 export default function RootLayout({
@@ -15,11 +16,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="he" dir="rtl">
-      {/* שמירת הגבלת הרוחב לנייד */}
       <body className="mx-auto max-w-screen-sm bg-gray-900">
         <Header />
-        {/* הסרת ה-p-4 שהיה קיים קודם כדי למנוע כפילות. נשאיר pb-24 לניווט התחתון. */}
-        <main className="pb-24 flex-grow">{children}</main>
+        <main className="pb-24 flex-grow">
+          <Suspense
+            fallback={
+              <div className="text-center text-gray-400 p-8">טוען...</div>
+            }
+          >
+            {children}
+          </Suspense>
+        </main>
         <BottomNav />
       </body>
     </html>
