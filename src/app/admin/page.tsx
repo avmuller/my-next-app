@@ -83,6 +83,7 @@ const Toast = ({
 
   return (
     <div
+      dir="rtl"
       className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 rounded-xl shadow-2xl ${bgColor} ${textColor} transition-all duration-300`}
       style={{ minWidth: "250px" }}
     >
@@ -340,7 +341,7 @@ export default function AdminPage() {
   const formFields = Object.keys(initialSongState);
 
   return (
-    <main className="mx-auto max-w-4xl p-4">
+    <main dir="rtl" className="mx-auto max-w-4xl p-4 text-right">
       {/* **הודעה קופצת (Toast)** */}
       {toast && (
         <Toast
