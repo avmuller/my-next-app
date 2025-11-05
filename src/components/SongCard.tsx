@@ -1,4 +1,4 @@
-// src/components/SongCard.tsx
+// src/components/SongCard.tsx (EN)
 "use client";
 import React, { useState } from "react";
 import { Song } from "@/types/song";
@@ -8,10 +8,8 @@ import { db } from "@/lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import clsx from "clsx";
 
-// **משתנה גלובלי זמני:** כדי לדמות מצב "אדמין"
 const IS_ADMIN_MODE = true;
 
-// ---------------------- קומפוננטת סטטוס קופץ (אישור/הודעה) ----------------------
 const StatusPopup = ({
   message,
   type,
@@ -23,53 +21,36 @@ const StatusPopup = ({
   onConfirm?: () => void;
   onCancel?: () => void;
 }) => {
-  // הגדרת צבע רקע דינמי
   const bgColor = clsx({
-    "bg-gray-800 border-gray-700": type === "confirm", // אפור כהה לאישור
-    "bg-green-600": type === "success", // ירוק להצלחה
-    "bg-red-700": type === "error", // אדום עמוק לשגיאה
+    "bg-gray-800 border-gray-700": type === "confirm",
+    "bg-green-600": type === "success",
+    "bg-red-700": type === "error",
   });
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-900/80 flex items-center justify-center p-4">
-      <div
-        className={`p-6 rounded-xl shadow-2xl ${bgColor} text-white max-w-sm w-full text-center border border-gray-700`}
-      >
-        <p className="text-lg font-semibold mb-4">
-          {type === "confirm" ? `❓ ${message}` : message}
-        </p>
+      <div className={`p-6 rounded-xl shadow-2xl ${bgColor} text-white max-w-sm w-full text-center border border-gray-700`}>
+        <p className="text-lg font-semibold mb-4">{message}</p>
         {type === "confirm" && (
           <div className="flex gap-4 mt-4">
-            <button
-              onClick={onConfirm}
-              className="flex-1 py-2 rounded-lg bg-red-800 hover:bg-red-700 font-medium transition"
-            >
-              🗑️ אשר מחיקה
+            <button onClick={onConfirm} className="flex-1 py-2 rounded-lg bg-red-800 hover:bg-red-700 font-medium transition">
+              Yes, delete
             </button>
-            <button
-              onClick={onCancel}
-              className="flex-1 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 font-medium transition"
-            >
-              ביטול
+            <button onClick={onCancel} className="flex-1 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 font-medium transition">
+              Cancel
             </button>
           </div>
         )}
-        {/* כפתור סגירה להודעות הצלחה/שגיאה */}
         {type !== "confirm" && (
-          <button
-            onClick={onConfirm}
-            className="py-2 rounded-lg bg-white/20 hover:bg-white/30 font-medium transition mt-4 w-full"
-          >
-            סגור
+          <button onClick={onConfirm} className="py-2 rounded-lg bg-white/20 hover:bg-white/30 font-medium transition mt-4 w-full">
+            Close
           </button>
         )}
       </div>
     </div>
   );
 };
-// ----------------------------------------------------------------
 
-// **שינוי 1: הגדרת Props עם פונקציית Callback**
 interface SongCardProps {
   song: Song;
   onDeleteSuccess: (deletedSongId: string) => void;
@@ -77,47 +58,38 @@ interface SongCardProps {
 
 export default function SongCard({ song, onDeleteSuccess }: SongCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false); // מצב לאישור מחיקה
+  const [showConfirm, setShowConfirm] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     msg: string;
     type: "success" | "error" | "confirm";
-  } | null>(null); // מצב לסטטוס הצלחה/כישלון
+  } | null>(null);
 
   const router = useRouter();
 
-  // פונקציה להפעלת תהליך המחיקה
   const handleDeletionProcess = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowConfirm(true); // פתיחת חלון האישור
+    setShowConfirm(true);
+    setStatusMessage({
+      msg: `Are you sure you want to delete: ${song.title}?`,
+      type: "confirm",
+    });
   };
 
-  // פונקציה לביצוע המחיקה בפועל
   const executeDelete = async () => {
-    setShowConfirm(false); // סגירת חלון האישור
-
+    setShowConfirm(false);
     try {
       await deleteDoc(doc(db, "songs", song.id));
-
-      // **תיקון קריטי:** הצגת הודעת הצלחה
-      setStatusMessage({
-        msg: `השיר '${song.title}' נמחק בהצלחה!`,
-        type: "success",
-      });
-
-      // **פתרון לבעיית ההיעלמות:** השהיית הסרת הרכיב מהמצב של ההורה
+      setStatusMessage({ msg: `Song '${song.title}' deleted successfully!`, type: "success" });
       setTimeout(() => {
-        if (typeof onDeleteSuccess === "function") {
-          onDeleteSuccess(song.id); // הסרת הרכיב מהמסך לאחר שהמשתמש ראה את ההודעה
-        }
-      }, 1500); // השהייה של 500ms
+        if (typeof onDeleteSuccess === "function") onDeleteSuccess(song.id);
+      }, 1200);
     } catch (err) {
-      console.error("שגיאה במחיקת שיר:", err);
-      setStatusMessage({ msg: "אירעה שגיאה במחיקה.", type: "error" });
-      setTimeout(() => setStatusMessage(null), 3000); // סגירת הודעת שגיאה
+      console.error("Error deleting song:", err);
+      setStatusMessage({ msg: "Failed to delete the song.", type: "error" });
+      setTimeout(() => setStatusMessage(null), 2500);
     }
   };
 
-  // פונקציה לעריכה - נווט לדף האדמין עם ID
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     router.push(`/admin?editId=${song.id}`);
@@ -125,80 +97,59 @@ export default function SongCard({ song, onDeleteSuccess }: SongCardProps) {
 
   return (
     <>
-      {/* 1. כרטיס השיר */}
-      <div
-        className="card p-4 flex flex-col gap-2 hover:bg-gray-700 transition cursor-pointer"
-        onClick={() => setIsModalOpen(true)}
-      >
-        {/* ... (תוכן כרטיס השיר) ... */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-semibold text-gray-50">{song.title}</div>
-            {/* <div className="text-sm text-gray-400">{song.Singer}</div> <-- הוסר לפי בקשתך */}
+      <div className="card p-4 flex flex-col gap-2 hover:bg-gray-700 transition cursor-pointer" onClick={() => setIsModalOpen(true)}>
+        <div className="flex items-start justify-between">
+          {/* Left: Key + Beat as subtle pills */}
+          <div className="flex flex-col items-start gap-1">
+            {song.Key ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-700/70 border border-gray-600 text-gray-200 px-2.5 py-0.5 text-xs">
+                <span className="font-medium">Key</span>
+                <span className="opacity-90">·</span>
+                <span className="font-semibold text-teal-300">{song.Key}</span>
+              </span>
+            ) : null}
+            {song.Beat ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-700/70 border border-gray-600 text-gray-200 px-2.5 py-0.5 text-xs">
+                <span className="font-medium">Beat</span>
+                <span className="opacity-90">·</span>
+                <span className="font-semibold text-teal-300">{song.Beat}</span>
+              </span>
+            ) : null}
           </div>
-          {/* הוספתי font-semibold כאן */}
-          <div className="text-sm text-gray-400 font-semibold">
-            סולם: {song.Key}
+          {/* Right: Title (RTL) + Singer under */}
+          <div className="text-right">
+            <div className="font-semibold text-lg text-gray-50" dir="rtl">{song.title}</div>
+            {song.Singer ? (
+              <div className="text-sm text-gray-300 font-medium" dir="rtl">{song.Singer}</div>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-          {song.Beat && (
-            <span
-              key="beat"
-              // הוספתי font-semibold כאן
-              className="badge bg-teal-800 text-teal-400 px-3 py-1 rounded-full font-semibold"
-            >
-              מקצב: {song.Beat}
-            </span>
-          )}
-
-          {/* החלקים של Genre ו-Event הוסרו מכאן לפי בקשתך
-           */}
-        </div>
-
-        {/* **כפתורי ניהול** */}
         {IS_ADMIN_MODE && (
           <div className="flex gap-2 mt-2 pt-2 border-t border-gray-700">
-            <button
-              onClick={handleEdit}
-              className="flex-1 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg transition"
-            >
-              ✏️ ערוך
+            <button onClick={handleEdit} className="flex-1 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg transition">
+              Edit
             </button>
-            <button
-              onClick={handleDeletionProcess}
-              className="flex-1 text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition"
-            >
-              🗑️ מחק
+            <button onClick={handleDeletionProcess} className="flex-1 text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition">
+              Delete
             </button>
           </div>
         )}
       </div>
 
-      <LyricsModal
-        song={song}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      <LyricsModal song={song} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* 2. מודל אישור מחיקה */}
       {showConfirm && (
         <StatusPopup
-          message={`האם ברצונך למחוק את השיר: ${song.title}?`}
+          message={`Are you sure you want to delete: ${song.title}?`}
           type="confirm"
           onConfirm={executeDelete}
           onCancel={() => setShowConfirm(false)}
         />
       )}
 
-      {/* 3. מודל סטטוס (הודעת הצלחה/שגיאה) */}
       {statusMessage && statusMessage.type !== "confirm" && (
-        <StatusPopup
-          message={statusMessage.msg}
-          type={statusMessage.type}
-          onConfirm={() => setStatusMessage(null)} // סוגר את הפופאפ
-        />
+        <StatusPopup message={statusMessage.msg} type={statusMessage.type} onConfirm={() => setStatusMessage(null)} />
       )}
     </>
   );

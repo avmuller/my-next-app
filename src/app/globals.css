@@ -4,7 +4,7 @@
 @tailwind utilities;
 
 html {
-  direction: rtl;
+  direction: ltr;
 }
 
 /* **שינוי:** רקע כללי כהה (כמעט שחור) וטקסט בהיר */

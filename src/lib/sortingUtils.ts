@@ -28,7 +28,7 @@ export const createCombinedSortComparator = (
       const beatB = getBeatSortValue(b.Beat);
 
       if (beatA !== beatB) {
-        return beatA.localeCompare(beatB, "he");
+        return beatA.localeCompare(beatB, "en");
       }
     }
 
@@ -39,11 +39,11 @@ export const createCombinedSortComparator = (
 
       // מיון אלפביתי רגיל (A-B-C)
       if (keyA !== keyB) {
-        return keyA.localeCompare(keyB, "he");
+        return keyA.localeCompare(keyB, "en");
       }
     }
 
-    // --- Level 3: Default (Title A-Z) ---
+    // --- Level 3: Default (Title א–ב) ---
     return a.title.localeCompare(b.title, "he");
   };
 };

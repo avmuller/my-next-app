@@ -1,25 +1,17 @@
-// src/data/categories.ts
+// src/data/categories.ts (EN)
 
 export interface Category {
   key: string;
-
   label: string;
-
   icon: string;
 }
 
 export const primaryCategories: Category[] = [
-  { key: "Event", label: "אירוע", icon: "🎉" },
-
-  { key: "Season", label: "עונה", icon: "📅" },
-
-  { key: "Theme", label: "נושא", icon: "💡" },
-
-  { key: "Singer", label: "מבצע", icon: "🎤" },
-
-  { key: "Composer", label: "מלחין", icon: "✍️" },
-
-  { key: "Genre", label: "ז'אנר", icon: "🎵" },
-
-  { key: "hasidut", label: "חסידות", icon: "🕍" },
+  { key: "Event", label: "Event", icon: "🎉" },
+  { key: "Season", label: "Season", icon: "📅" },
+  { key: "Theme", label: "Theme", icon: "💡" },
+  { key: "Singer", label: "Singer", icon: "🎤" },
+  { key: "Composer", label: "Composer", icon: "✍️" },
+  { key: "Genre", label: "Genre", icon: "🎵" },
+  { key: "hasidut", label: "Chasidic", icon: "🕍" },
 ];

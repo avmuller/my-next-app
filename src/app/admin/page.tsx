@@ -167,7 +167,7 @@ export default function AdminPage() {
       const result: Record<string, string[]> = {};
       Object.keys(uniqueData).forEach((key) => {
         result[key] = Array.from(uniqueData[key]).sort((a, b) =>
-          a.localeCompare(b, "he")
+          a.localeCompare(b, "en")
         );
       });
 
@@ -204,12 +204,12 @@ export default function AdminPage() {
           Event: Array.isArray(data.Event) ? data.Event.join(", ") : "",
         } as unknown as SongForm);
       } else {
-        showToast(`שגיאה: שיר עם ID ${id} לא נמצא.`, "error");
+        showToast(`Error: Song with ID ${id} not found.`, "error");
         setIsEditing(null);
         router.replace("/admin");
       }
     } catch (error) {
-      showToast("שגיאה בטעינת נתוני השיר לעריכה.", "error");
+      showToast("Failed to load song data for editing.", "error");
       setIsEditing(null);
     }
   };
@@ -217,7 +217,7 @@ export default function AdminPage() {
   const handleCancelEdit = () => {
     setIsEditing(null);
     setSong(initialSongState);
-    showToast("העריכה בוטלה.", "info");
+    showToast("Edit canceled.", "info");
     router.replace("/admin");
   };
 
@@ -251,19 +251,19 @@ export default function AdminPage() {
       if (isEditing) {
         const songRef = doc(db, "songs", isEditing);
         await updateDoc(songRef, processedSongData);
-        showToast("✔️ השיר עודכן בהצלחה!", "success");
+        showToast("✔️ Song updated successfully!", "success");
         setIsEditing(null);
         router.replace("/admin");
       } else {
         await addDoc(collection(db, "songs"), processedSongData);
-        showToast("➕ השיר נוסף בהצלחה!", "success");
+        showToast("➕ Song added successfully!", "success");
         fetchUniqueCategories();
       }
 
       setSong(initialSongState);
     } catch (error) {
       console.error("Error adding/updating document: ", error);
-      showToast("❌ שגיאה בשמירת שיר. בדוק את הקונסול.", "error");
+      showToast("❌ Error saving song. Check the console.", "error");
     }
   };
 
@@ -286,14 +286,14 @@ export default function AdminPage() {
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet);
       setExcelData(json);
-      showToast(`קובץ Excel נטען. נמצאו ${json.length} שורות.`, "info");
+      showToast(`Excel file loaded. Found ${json.length} rows.`, "info");
     };
     reader.readAsBinaryString(file);
   };
 
   const handleImportExcel = async () => {
     if (excelData.length === 0) {
-      showToast("לא נמצאו נתונים לייבוא.", "info");
+      showToast("No data to import.", "info");
       return;
     }
 
@@ -327,14 +327,11 @@ export default function AdminPage() {
         await addDoc(songsCollection, songData);
         successfulImports++;
       } catch (e) {
-        console.error("שגיאה בייבוא שיר: ", row, e);
+        console.error("Error importing song: ", row, e);
       }
     }
 
-    showToast(
-      `הייבוא הסתיים! ${successfulImports} שירים יובאו בהצלחה.`,
-      "success"
-    );
+    showToast(`Import complete! ${successfulImports} songs imported successfully.`, "success");
     setExcelData([]);
     fetchUniqueCategories(); // רענון נתוני ההשלמה האוטומטית
   };
