@@ -1,4 +1,6 @@
 // src/lib/sortingUtils.ts
+// Purpose: Sorting helpers for Song lists shared across pages.
+// Provides a combined comparator for Beat/Key with title fallback.
 import { Song } from "@/types/song";
 
 const RHYTHM_CHANGES_TAG = "Rhythm Changes";

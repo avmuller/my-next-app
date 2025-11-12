@@ -1,3 +1,6 @@
+// src/app/admin/page.tsx
+// Purpose: Admin interface to add, edit, import (Excel), and manage songs.
+// Includes form handling, Firestore CRUD operations, and simple toasts.
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
@@ -14,28 +17,30 @@ import { Song, SongForm } from "@/types/song";
 import { useSearchParams, useRouter } from "next/navigation";
 
 // **1. הגדרת קבוצות שדות ברורות**
+// Fields that map to a single string value; used to build autocomplete lists
 const SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE: (keyof Song)[] = [
   "Singer",
   "Composer",
   "Key",
   "Beat", // Beat נשאר כאן עבור ה-datalist
   "Theme",
-  "Album",
   "hasidut",
 ];
 
 // שדות מרובי ערכים (אלו שמושבתת בהם ההשלמה)
+// Fields that are arrays on the Song object
 const MULTI_VALUE_FIELDS: (keyof Song)[] = ["Genre", "Event", "Season"];
 
 // שדות שאנו מביאים מ-DB לצורך השלמה אוטומטית (איחוד של שתי הרשימות)
+// Combined list of fields we query across to collect unique values
 const FIELDS_FOR_UNIQUE_FETCH = [
   ...SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE,
   ...MULTI_VALUE_FIELDS,
 ];
 
 // מצב ראשוני לטופס
+// Initial state for the admin form
 const initialSongState: SongForm = {
-  year: "",
   title: "",
   Beat: "",
   Key: "",
@@ -45,12 +50,12 @@ const initialSongState: SongForm = {
   Composer: "",
   Singer: "",
   Season: [],
-  Album: "",
   hasidut: "",
   Lyrics: "",
 };
 
 // פונקציית עזר לניקוי ופיצול מחרוזת למערך
+// Utility: split a comma-separated string into a clean string array
 const splitAndClean: (value: string | string[]) => string[] = (value) => {
   if (Array.isArray(value)) return value.filter((v) => v && v.trim() !== "");
   if (typeof value !== "string") return [];
@@ -109,6 +114,9 @@ export default function AdminPage() {
   const [uniqueCategories, setUniqueCategories] = useState<
     Record<string, string[]>
   >({});
+  // Autocomplete state for custom suggestion list
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [queries, setQueries] = useState<Record<string, string>>({});
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -196,10 +204,8 @@ export default function AdminPage() {
           Theme: data.Theme,
           Composer: data.Composer,
           Singer: data.Singer,
-          Album: data.Album,
           hasidut: data.hasidut,
           Lyrics: data.Lyrics,
-          year: String(data.year || ""),
           Season: Array.isArray(data.Season) ? data.Season.join(", ") : "",
           Genre: Array.isArray(data.Genre) ? data.Genre.join(", ") : "",
           Event: Array.isArray(data.Event) ? data.Event.join(", ") : "",
@@ -239,11 +245,9 @@ export default function AdminPage() {
         Theme: song.Theme,
         Composer: song.Composer,
         Singer: song.Singer,
-        Album: song.Album,
         hasidut: song.hasidut,
         Lyrics: song.Lyrics,
         Season: splitAndClean(song.Season as unknown as string),
-        year: parseInt(song.year) || 0,
         Genre: splitAndClean(song.Genre as unknown as string),
         Event: splitAndClean(song.Event as unknown as string),
         createdAt: new Date(),
@@ -316,10 +320,8 @@ export default function AdminPage() {
           Composer: row["Composer"] || "",
           Singer: row["Singer"] || "",
           Season: splitAndClean(row["Season"]),
-          Album: row["Album"] || "",
           hasidut: row["hasidut"] || "",
           Lyrics: row["Lyrics"] || "",
-          year: parseInt(row["Year"] || "0") || 0,
           Genre: splitAndClean(row["Genre"]),
           Event: splitAndClean(row["Event"]),
           createdAt: new Date(),
@@ -370,7 +372,7 @@ export default function AdminPage() {
             const isRequired = key === "title" || key === "Singer";
 
             return (
-              <div key={key}>
+              <div key={key} className="relative">
                 <label
                   htmlFor={key}
                   className="block text-sm font-medium text-white"
@@ -385,7 +387,6 @@ export default function AdminPage() {
                   type={key === "year" ? "number" : "text"}
                   name={key}
                   id={key}
-                  list={isAutocomplete ? `datalist-${key}` : undefined}
                   value={
                     isMultiValue
                       ? (
@@ -393,18 +394,56 @@ export default function AdminPage() {
                         )?.toString()
                       : (song[key as keyof SongForm] as string) || ""
                   }
-                  onChange={handleManualChange}
+                  onFocus={() => isAutocomplete && setOpenKey(key)}
+                  onBlur={() =>
+                    setTimeout(
+                      () => setOpenKey((k) => (k === key ? null : k)),
+                      100
+                    )
+                  }
+                  onChange={(e) => {
+                    handleManualChange(e);
+                    if (isAutocomplete) {
+                      const v = e.target.value ?? "";
+                      setQueries((prev) => ({ ...prev, [key]: v }));
+                      setOpenKey(key);
+                    }
+                  }}
                   required={isRequired}
+                  autoComplete="off"
                   className="mt-1 block w-full border border-gray-700 rounded-md shadow-sm p-2 bg-gray-800 text-gray-50 placeholder-gray-500"
                 />
 
                 {/* הגדרת ה-DATALIST (רק לשדות ערך יחיד) */}
-                {isAutocomplete && uniqueCategories[key] && (
-                  <datalist id={`datalist-${key}`}>
-                    {uniqueCategories[key].map((option) => (
-                      <option key={option} value={option} />
-                    ))}
-                  </datalist>
+                {isAutocomplete && openKey === key && uniqueCategories[key] && (
+                  <div className="absolute z-20 mt-1 w-full max-h-48 overflow-auto rounded-md border border-gray-700 bg-gray-800 text-gray-50 shadow-lg">
+                    {(uniqueCategories[key] || [])
+                      .filter((opt) =>
+                        (queries[key] ?? "")
+                          .toLowerCase()
+                          .split(/\s+/)
+                          .every((part) => opt.toLowerCase().includes(part))
+                      )
+                      .slice(0, 10)
+                      .map((option) => (
+                        <button
+                          type="button"
+                          key={option}
+                          className="w-full text-right px-3 py-2 hover:bg-gray-700"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSong((prev) => ({ ...prev, [key]: option }) as any);
+                            setQueries((prev) => ({ ...prev, [key]: option }));
+                            setOpenKey(null);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    {uniqueCategories[key].length === 0 && (
+                      <div className="px-3 py-2 text-gray-400">אין הצעות</div>
+                    )}
+                  </div>
                 )}
               </div>
             );

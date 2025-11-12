@@ -1,4 +1,6 @@
 // src/app/search/page.tsx (EN)
+// Purpose: Full-text-ish client-side search across songs with
+// optional sorting by Beat and Key.
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -9,6 +11,7 @@ import SongCard from "@/components/SongCard";
 import clsx from "clsx";
 import { createCombinedSortComparator } from "@/lib/sortingUtils";
 
+// Song fields included in the search sweep
 const SEARCHABLE_FIELDS: (keyof Song)[] = [
   "title",
   "Composer",
@@ -16,16 +19,17 @@ const SEARCHABLE_FIELDS: (keyof Song)[] = [
   "Beat",
   "Theme",
   "Singer",
-  "year",
   "Genre",
   "Event",
 ];
 
 export default function SearchPage() {
+  // UI state: query text, loading indicator, and fetched songs
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(false);
   const [allSongs, setAllSongs] = useState<Song[]>([]);
 
+  // Sorting toggles for Beat and Key
   const [sortByBeat, setSortByBeat] = useState(false);
   const [sortByKey, setSortByKey] = useState(false);
 
@@ -35,6 +39,7 @@ export default function SearchPage() {
     );
   };
 
+  // Fetch the entire songs collection once into memory
   useEffect(() => {
     const fetchAllSongs = async () => {
       setLoading(true);
@@ -63,6 +68,7 @@ export default function SearchPage() {
     fetchAllSongs();
   }, []);
 
+  // Derive filtered + sorted list when inputs change
   const filteredAndSortedSongs = useMemo(() => {
     let resultSongs = allSongs;
     const q = queryText.toLowerCase().trim();
@@ -83,6 +89,7 @@ export default function SearchPage() {
 
     resultSongs = [...resultSongs];
     const comparator = createCombinedSortComparator(sortByBeat, sortByKey);
+    // Use the shared comparator when any sort option is toggled
     if (sortByBeat || sortByKey) {
       resultSongs.sort(comparator);
     } else {
@@ -92,6 +99,7 @@ export default function SearchPage() {
     return resultSongs;
   }, [allSongs, queryText, sortByBeat, sortByKey]);
 
+  // Render search UI, controls, and results
   return (
     <div className="min-h-screen space-y-5 p-4 bg-gray-900">
       <h1 className="text-2xl font-bold text-gray-50 mb-6">Search Songs</h1>

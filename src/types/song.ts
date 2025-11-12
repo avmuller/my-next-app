@@ -1,27 +1,24 @@
 // src/types/song.ts (UPDATED)
 
 /**
- * הממשק המלא עבור אובייקט שיר.
+ * Canonical Song type used across the app.
  */
 export interface Song {
   id: string;
-  title: string; // Song
-  Beat: string; // **חדש: שדה Beat**
+  title: string;
+  Beat: string;
   Key: string;
-  year: number;
   Genre: string[];
   Event: string[];
   Theme: string;
   Composer: string;
   Singer: string;
   Season: string[];
-  Album: string;
   hasidut: string;
   Lyrics: string;
   createdAt?: Date;
 }
 
-// SongForm יכלול את year כמחרוזת כי זה מה שנקבל מה-Input
-export type SongForm = Omit<Song, "id" | "createdAt" | "year"> & {
-  year: string;
-};
+// SongForm mirrors Song for form usage, excluding DB-only props
+export type SongForm = Omit<Song, "id" | "createdAt">;
+

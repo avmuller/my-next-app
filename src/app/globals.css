@@ -37,3 +37,46 @@ body {
 .badge {
   @apply inline-flex items-center justify-center text-xs font-medium;
 }
+
+/* Brand theme (match to logo colors) */
+:root {
+  --brand-1: #0ea5e9; /* sky-500 */
+  --brand-2: #06b6d4; /* cyan-500 */
+  --brand-ink: #e2f3ff; /* light ink for dark BG */
+}
+
+.brand-hero {
+  background: radial-gradient(1200px 400px at 0% -20%, color-mix(in oklab, var(--brand-1) 60%, transparent), transparent 60%),
+              radial-gradient(1200px 400px at 100% 120%, color-mix(in oklab, var(--brand-2) 60%, transparent), transparent 60%),
+              linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.brand-outline {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.brand-accent {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+}
+
+.brand-text {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Utility helpers for interactive brand states */
+.brand-hover:hover {
+  border-color: var(--brand-1) !important;
+}
+
+.brand-outline {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Subtle inner brand glow for cards */
+.brand-inner-glow {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand-1) 55%, transparent);
+}

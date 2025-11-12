@@ -9,13 +9,15 @@ const items = [
   { href: "/search", label: "Search", icon: "🔎" },
 ];
 
+const navItems = [...items, { href: "/admin", label: "Admin", icon: "⚙️" }];
+
 export default function BottomNav() {
   const pathname = usePathname();
 
   return (
     <nav className="fixed bottom-0 inset-x-0 h-16 z-20 bg-gray-800 shadow-2xl border-t border-gray-700">
-      <div className="mx-auto max-w-screen-sm grid grid-cols-3 h-full text-sm">
-        {items.map((it) => (
+      <div className="mx-auto max-w-screen-sm grid grid-cols-4 h-full text-sm">
+        {navItems.map((it) => (
           <Link
             key={it.href}
             href={it.href}

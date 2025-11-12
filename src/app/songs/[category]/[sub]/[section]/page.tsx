@@ -1,6 +1,5 @@
-// src/app/songs/[category]/[sub]/page.tsx (EN)
-// Purpose: List songs that match a specific sub-category
-// under a selected top-level category (e.g., all songs by a Singer).
+// src/app/songs/[category]/[sub]/[section]/page.tsx
+// Purpose: Display the Meal/Dance (or any extra) section under a specific sub-category.
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -15,33 +14,35 @@ import {
 } from "firebase/firestore";
 import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
-import CategoryGrid from "@/components/CategoryGrid";
 import { primaryCategories } from "@/data/categories";
-import type { Category } from "@/data/categories";
 import clsx from "clsx";
 import { createCombinedSortComparator } from "@/lib/sortingUtils";
 
 const weddingLabels = ["wedding", "חתונה", "chatuna", "chasuna", "chassuna"];
-const weddingSubCategories: Category[] = [
-  { key: "Meal", label: "Meal", icon: "" },
-  { key: "Dance", label: "Dance", icon: "" },
-];
+const danceBeatTriggers = ["frailach", "freilach", "hora"];
 
-export default function SongsBySubCategory() {
+export default function WeddingSectionSongsPage() {
   const router = useRouter();
-  const params = useParams() as { category: string; sub: string };
-  const { category, sub } = params;
-  // Sub value in the URL may be encoded (e.g., spaces); decode it for display and queries
+  const params = useParams() as {
+    category: string;
+    sub: string;
+    section: string;
+  };
+  const { category, sub, section } = params;
+
   const decodedSub = decodeURIComponent(sub);
+  const decodedSection = decodeURIComponent(section);
   const normalizedSub = decodedSub.trim().toLowerCase();
+  const normalizedSection = decodedSection.trim().toLowerCase();
   const isWeddingCategory = weddingLabels.some((label) =>
     normalizedSub.includes(label)
   );
+  const isDanceSection = normalizedSection === "dance";
+  const isMealSection = normalizedSection === "meal";
 
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>([]);
-
   const [sortByBeat, setSortByBeat] = useState(false);
   const [sortByKey, setSortByKey] = useState(false);
 
@@ -49,17 +50,19 @@ export default function SongsBySubCategory() {
     setSongs((prevSongs) => prevSongs.filter((song) => song.id !== deletedSongId));
   };
 
-  // Fetch songs filtered by the current category/sub selection
   const fetchSongs = async () => {
     setLoading(true);
     try {
       const songsCollectionRef = collection(db, "songs");
-      const currentCategory = primaryCategories.find((c) => c.key.toLowerCase() === category.toLowerCase());
+      const currentCategory = primaryCategories.find(
+        (c) => c.key.toLowerCase() === category.toLowerCase()
+      );
       const fieldName = currentCategory?.key || category;
       const isArrayField = ["Genre", "Event", "Season"].includes(fieldName);
 
       const constraints: QueryConstraint[] = [];
-      if (isArrayField) constraints.push(where(fieldName, "array-contains", decodedSub));
+      if (isArrayField)
+        constraints.push(where(fieldName, "array-contains", decodedSub));
       else constraints.push(where(fieldName, "==", decodedSub));
 
       const q = query(songsCollectionRef, ...constraints);
@@ -85,24 +88,18 @@ export default function SongsBySubCategory() {
   };
 
   useEffect(() => {
-    // Wedding route shows another grid instead of fetching songs immediately.
-    if (isWeddingCategory) {
-      setSongs([]);
-      setLoading(false);
-      return;
-    }
-    // Re-fetch when route params change
     fetchSongs();
-  }, [category, sub, isWeddingCategory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, sub]);
 
-  // Client-side filter + sort of the fetched songs
   const filteredAndSortedSongs = useMemo(() => {
     let resultSongs = songs;
     const q = queryText.toLowerCase().trim();
 
     if (queryText) {
       resultSongs = resultSongs.filter(
-        (s) => s.title.toLowerCase().includes(q) || s.Key.toLowerCase().includes(q)
+        (s) =>
+          s.title.toLowerCase().includes(q) || s.Key.toLowerCase().includes(q)
       );
     }
 
@@ -117,40 +114,51 @@ export default function SongsBySubCategory() {
     return resultSongs;
   }, [songs, queryText, sortByBeat, sortByKey]);
 
-  if (isWeddingCategory) {
-    const weddingBasePath = `/songs/${encodeURIComponent(
-      category
-    )}/${encodeURIComponent(sub)}`;
-    return (
-      <div className="min-h-screen bg-gray-900 px-4 py-4 space-y-5">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => router.back()}
-            className="rounded-full bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm px-3 py-1 shadow-sm transition"
-          >
-            Back
-          </button>
-          <h1 className="text-xl font-semibold text-gray-50 truncate">
-            {decodedSub}
-          </h1>
-        </div>
-        <p className="text-gray-300">Choose a section for this event:</p>
-        <CategoryGrid
-          categories={weddingSubCategories}
-          basePath={weddingBasePath}
-        />
-      </div>
-    );
-  }
+  const sectionFilteredSongs = useMemo(() => {
+    if (!isWeddingCategory || (!isDanceSection && !isMealSection)) {
+      return filteredAndSortedSongs;
+    }
+
+    return filteredAndSortedSongs.filter((song) => {
+      const beatValue = (song.Beat || "").toString().toLowerCase();
+      const isDanceSong = danceBeatTriggers.some((beat) =>
+        beatValue.includes(beat)
+      );
+      return isDanceSection ? isDanceSong : !isDanceSong;
+    });
+  }, [
+    filteredAndSortedSongs,
+    isWeddingCategory,
+    isDanceSection,
+    isMealSection,
+  ]);
+
+  const sectionTitle = isDanceSection
+    ? "Dance"
+    : isMealSection
+    ? "Meal"
+    : decodedSection;
+
+  const helperText = isDanceSection
+    ? "Showing all Frailach/Hora beats."
+    : isMealSection
+    ? "Showing all other beats for the meal."
+    : `Songs tagged as ${decodedSection}.`;
 
   return (
     <div className="min-h-screen bg-gray-900 px-4 py-4 space-y-5">
-      <div className="flex items-center justify-between mb-2">
-        <button onClick={() => router.back()} className="rounded-full bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm px-3 py-1 shadow-sm transition">
+      <div className="flex items-center justify-between mb-1">
+        <button
+          onClick={() => router.back()}
+          className="rounded-full bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm px-3 py-1 shadow-sm transition"
+        >
           Back
         </button>
-        <h1 className="text-xl font-semibold text-gray-50 truncate">{decodedSub}</h1>
+        <h1 className="text-lg font-semibold text-gray-50 truncate">
+          {decodedSub} · {sectionTitle}
+        </h1>
       </div>
+      <p className="text-sm text-gray-400">{helperText}</p>
 
       <div className="sticky top-14 z-10 bg-gray-900 pt-2 pb-4">
         <input
@@ -167,7 +175,9 @@ export default function SongsBySubCategory() {
           onClick={() => setSortByBeat(!sortByBeat)}
           className={clsx(
             "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
-            sortByBeat ? "bg-teal-500 text-gray-900" : "bg-gray-700 text-gray-50 hover:bg-gray-600"
+            sortByBeat
+              ? "bg-teal-500 text-gray-900"
+              : "bg-gray-700 text-gray-50 hover:bg-gray-600"
           )}
         >
           Sort by Beat first
@@ -176,7 +186,9 @@ export default function SongsBySubCategory() {
           onClick={() => setSortByKey(!sortByKey)}
           className={clsx(
             "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
-            sortByKey ? "bg-teal-500 text-gray-900" : "bg-gray-700 text-gray-50 hover:bg-gray-600"
+            sortByKey
+              ? "bg-teal-500 text-gray-900"
+              : "bg-gray-700 text-gray-50 hover:bg-gray-600"
           )}
         >
           Sort by Key first
@@ -194,8 +206,8 @@ export default function SongsBySubCategory() {
         <p className="text-center text-teal-400 py-10">Loading songs...</p>
       ) : (
         <div className="grid gap-3 pb-24">
-          {filteredAndSortedSongs.length > 0 ? (
-            filteredAndSortedSongs.map((song) => (
+          {sectionFilteredSongs.length > 0 ? (
+            sectionFilteredSongs.map((song) => (
               <SongCard
                 key={song.id}
                 song={song}
@@ -204,7 +216,7 @@ export default function SongsBySubCategory() {
             ))
           ) : (
             <p className="text-gray-400 text-center py-10">
-              No songs found for "{decodedSub}"
+              No songs found for "{decodedSection}"
             </p>
           )}
         </div>

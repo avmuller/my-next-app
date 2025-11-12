@@ -1,8 +1,11 @@
 // src/components/LyricsModal.tsx (EN)
+// Purpose: Modal to display lyrics either as inline text or a link
+// to an external resource (e.g., PDF). Controlled by parent.
 "use client";
 import React from "react";
 import { Song } from "@/types/song";
 
+// Small helper: detect whether a string is a valid absolute URL
 const isUrl = (str: string) => {
   try {
     new URL(str);
@@ -40,6 +43,7 @@ export default function LyricsModal({ song, isOpen, onClose }: LyricsModalProps)
         </button>
       </header>
 
+      {/* Scrollable content area: shows text or a button to open external link */}
       <div className="flex-grow w-full max-w-xl overflow-y-auto p-4 rounded-xl bg-gray-800 border border-gray-700 shadow-inner">
         {lyricsContent ? (
           <>
@@ -75,4 +79,3 @@ export default function LyricsModal({ song, isOpen, onClose }: LyricsModalProps)
     </div>
   );
 }
-

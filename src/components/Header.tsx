@@ -1,7 +1,7 @@
 // src/components/Header.tsx (EN)
 "use client";
 import Link from "next/link";
-import React from "react";
+import Image from "next/image";
 
 interface HeaderProps {
   title?: string;
@@ -9,20 +9,22 @@ interface HeaderProps {
 
 export default function Header({ title }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 h-14 flex-shrink-0 bg-gray-900/90 backdrop-blur border-b border-gray-700">
-      <div className="flex items-center justify-between h-full px-4">
-        <Link href="/" className="text-base font-bold text-gray-50">
-          {title || "Song Selection"}
-        </Link>
+    <header className="sticky top-0 z-20 h-24 flex-shrink-0 bg-gray-900/90 backdrop-blur border-b border-gray-800">
+      <div className="flex items-center h-full px-4">
         <Link
-          href="/admin"
-          className="text-xs bg-gray-700 text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-600 transition"
-          aria-label="Admin"
+          href="/"
+          className="flex items-center gap-4 text-2xl font-bold text-gray-50 min-w-0"
         >
-          Admin Panel
+          <Image
+            src="/logo.png"
+            alt="App logo"
+            width={80}
+            height={80}
+            priority
+          />
+          <span className="truncate">{title || "Song Selection"}</span>
         </Link>
       </div>
     </header>
   );
 }
-
