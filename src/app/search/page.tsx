@@ -33,12 +33,6 @@ export default function SearchPage() {
   const [sortByBeat, setSortByBeat] = useState(false);
   const [sortByKey, setSortByKey] = useState(false);
 
-  const handleSongDelete = (deletedSongId: string) => {
-    setAllSongs((prevSongs) =>
-      prevSongs.filter((song) => song.id !== deletedSongId)
-    );
-  };
-
   // Fetch the entire songs collection once into memory
   useEffect(() => {
     const fetchAllSongs = async () => {
@@ -101,10 +95,10 @@ export default function SearchPage() {
 
   // Render search UI, controls, and results
   return (
-    <div className="min-h-screen space-y-5 p-4 bg-gray-900">
-      <h1 className="text-2xl font-bold text-gray-50 mb-6">Search Songs</h1>
+    <div className="min-h-screen space-y-4 px-3 py-4 sm:px-4 bg-gray-900">
+      <h1 className="text-2xl font-bold text-gray-50">Search Songs</h1>
 
-      <div className="sticky top-14 z-10 bg-gray-900 pt-2 pb-4">
+      <div className="sticky top-4 z-10 bg-gray-900/95 backdrop-blur border-b border-gray-800 pb-3">
         <input
           type="text"
           placeholder="Search title, composer, key, beat..."
@@ -167,7 +161,6 @@ export default function SearchPage() {
           <SongCard
             key={song.id}
             song={song}
-            onDeleteSuccess={handleSongDelete}
           />
         ))}
       </div>

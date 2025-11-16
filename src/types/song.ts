@@ -16,9 +16,7 @@ export interface Song {
   Season: string[];
   hasidut: string;
   Lyrics: string;
-  createdAt?: Date;
 }
 
 // SongForm mirrors Song for form usage, excluding DB-only props
-export type SongForm = Omit<Song, "id" | "createdAt">;
-
+export type SongForm = Omit<Song, "id">;

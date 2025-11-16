@@ -20,11 +20,12 @@ import { primaryCategories } from "@/data/categories";
 import type { Category } from "@/data/categories";
 import clsx from "clsx";
 import { createCombinedSortComparator } from "@/lib/sortingUtils";
+import { CakeIcon, MusicalNoteIcon } from "@heroicons/react/24/outline";
 
 const weddingLabels = ["wedding", "חתונה", "chatuna", "chasuna", "chassuna"];
 const weddingSubCategories: Category[] = [
-  { key: "Meal", label: "Meal", icon: "" },
-  { key: "Dance", label: "Dance", icon: "" },
+  { key: "Meal", label: "Meal", icon: CakeIcon },
+  { key: "Dance", label: "Dance", icon: MusicalNoteIcon },
 ];
 
 export default function SongsBySubCategory() {
@@ -44,10 +45,6 @@ export default function SongsBySubCategory() {
 
   const [sortByBeat, setSortByBeat] = useState(false);
   const [sortByKey, setSortByKey] = useState(false);
-
-  const handleSongDelete = (deletedSongId: string) => {
-    setSongs((prevSongs) => prevSongs.filter((song) => song.id !== deletedSongId));
-  };
 
   // Fetch songs filtered by the current category/sub selection
   const fetchSongs = async () => {
@@ -122,7 +119,7 @@ export default function SongsBySubCategory() {
       category
     )}/${encodeURIComponent(sub)}`;
     return (
-      <div className="min-h-screen bg-gray-900 px-4 py-4 space-y-5">
+    <div className="min-h-screen bg-gray-900 px-2 py-4 sm:px-3 space-y-5">
         <div className="flex items-center justify-between mb-2">
           <button
             onClick={() => router.back()}
@@ -144,7 +141,7 @@ export default function SongsBySubCategory() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-4 space-y-5">
+    <div className="min-h-screen bg-gray-900 px-2 py-4 sm:px-3 space-y-5">
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => router.back()} className="rounded-full bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm px-3 py-1 shadow-sm transition">
           Back
@@ -199,7 +196,6 @@ export default function SongsBySubCategory() {
               <SongCard
                 key={song.id}
                 song={song}
-                onDeleteSuccess={handleSongDelete}
               />
             ))
           ) : (

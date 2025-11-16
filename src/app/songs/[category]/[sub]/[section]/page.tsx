@@ -46,10 +46,6 @@ export default function WeddingSectionSongsPage() {
   const [sortByBeat, setSortByBeat] = useState(false);
   const [sortByKey, setSortByKey] = useState(false);
 
-  const handleSongDelete = (deletedSongId: string) => {
-    setSongs((prevSongs) => prevSongs.filter((song) => song.id !== deletedSongId));
-  };
-
   const fetchSongs = async () => {
     setLoading(true);
     try {
@@ -146,7 +142,7 @@ export default function WeddingSectionSongsPage() {
     : `Songs tagged as ${decodedSection}.`;
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-4 space-y-5">
+    <div className="min-h-screen bg-gray-900 px-2 py-4 sm:px-3 space-y-5">
       <div className="flex items-center justify-between mb-1">
         <button
           onClick={() => router.back()}
@@ -211,7 +207,6 @@ export default function WeddingSectionSongsPage() {
               <SongCard
                 key={song.id}
                 song={song}
-                onDeleteSuccess={handleSongDelete}
               />
             ))
           ) : (

@@ -20,13 +20,17 @@ export default function SearchBoxLink({ className, defaultText, focusText }: Pro
   return (
     <Link href="/search" className={clsx("block", className)}>
       <div
-        className="w-full px-4 py-3 rounded-xl bg-gray-800/90 text-gray-200 text-lg shadow-lg flex items-center transition ring-2 ring-sky-400/60 hover:ring-sky-300 ring-offset-2 ring-offset-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        className="w-full relative overflow-hidden rounded-2xl border border-teal-500/30 bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 px-4 md:px-6 py-3 md:py-4 text-gray-100 text-lg md:text-xl shadow-xl shadow-black/40 hover:shadow-teal-600/30 ring-1 ring-black/40 hover:ring-teal-400/60 flex items-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
         aria-label="Search Songs"
         tabIndex={0}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       >
-        {text}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-6 -top-12 h-24 rounded-full bg-teal-500/20 blur-3xl"
+        />
+        <span className="relative font-medium drop-shadow">{text}</span>
       </div>
     </Link>
   );

@@ -8,10 +8,10 @@ import { primaryCategories } from "@/data/categories";
 export default function HomePage() {
   return (
     // Page container
-    <div className="p-4">
+    <div className="p-2 sm:p-3 md:p-8 lg:p-10">
       {/* Link to the dedicated search page */}
-      <SearchBoxLink className="mb-6" defaultText="Browse all songs" focusText="Search by title, key, beat..." />
-      <p className="text-gray-400 mb-4">Choose a category:</p>
+      <SearchBoxLink className="mb-6 md:mb-8" defaultText="Browse all songs" focusText="Search by title, key, beat..." />
+      <p className="text-gray-400 text-base md:text-lg mb-4 md:mb-6">Choose a category:</p>
       {/* Render the default categories */}
       <CategoryGrid categories={primaryCategories} />
     </div>

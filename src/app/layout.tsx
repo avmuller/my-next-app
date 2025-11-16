@@ -21,15 +21,17 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr">
       {/* Page container with app-wide styling */}
-      <body className="mx-auto max-w-screen-sm bg-gray-900">
-        <Header />
-        {/* Main content area; leaves room for the bottom nav */}
-        <main className="pb-24 flex-grow">
-          {/* Defer child route rendering until data/components are ready */}
-          <Suspense fallback={<div className="text-center text-gray-400 p-8">Loading...</div>}>
-            {children}
-          </Suspense>
-        </main>
+      <body className="min-h-screen bg-gray-900 text-gray-50">
+        <div className="mx-auto flex min-h-screen w-full max-w-screen-lg flex-col">
+          <Header />
+          {/* Main content area; leaves room for the bottom nav */}
+          <main className="flex-grow pb-24 px-1 sm:px-3 md:px-8 lg:px-10">
+            {/* Defer child route rendering until data/components are ready */}
+            <Suspense fallback={<div className="text-center text-gray-400 p-8">Loading...</div>}>
+              {children}
+            </Suspense>
+          </main>
+        </div>
         <BottomNav />
       </body>
     </html>

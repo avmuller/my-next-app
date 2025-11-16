@@ -16,7 +16,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 inset-x-0 h-16 z-20 bg-gray-800 shadow-2xl border-t border-gray-700">
-      <div className="mx-auto max-w-screen-sm grid grid-cols-4 h-full text-sm">
+      <div className="mx-auto w-full max-w-screen-lg px-4 grid grid-cols-4 h-full text-sm">
         {navItems.map((it) => (
           <Link
             key={it.href}
