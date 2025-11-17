@@ -22,16 +22,29 @@ export default function SongManager({
   const [songSearchTerm, setSongSearchTerm] = useState("");
   const [showSongManager, setShowSongManager] = useState(false);
   const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   // Sync internal state when props change (after server reload/action)
   useEffect(() => {
     setAllSongs(initialAllSongs);
   }, [initialAllSongs]);
 
+  const sortedSongs = useMemo(() => {
+    return [...allSongs].sort((a, b) =>
+      (a.title || "").localeCompare(b.title || "", "he", {
+        sensitivity: "base",
+        numeric: true,
+      })
+    );
+  }, [allSongs]);
+
   const filteredSongs = useMemo(() => {
     const term = songSearchTerm.toLowerCase().trim();
-    if (!term) return allSongs;
-    return allSongs.filter((item) => {
+    if (!term) return sortedSongs;
+    return sortedSongs.filter((item) => {
       const haystacks = [
         item.title,
         item.Singer,
@@ -44,15 +57,9 @@ export default function SongManager({
         .map((value) => value!.toString().toLowerCase());
       return haystacks.some((value) => value.includes(term));
     });
-  }, [allSongs, songSearchTerm]);
+  }, [sortedSongs, songSearchTerm]);
 
   const handleDeleteSong = async (songId: string, title: string) => {
-    // Replaced window.confirm with a simpler mechanism since we're not implementing a full modal here.
-    const confirmed = window.confirm(
-      `Delete "${title}"? This cannot be undone.`
-    );
-    if (!confirmed) return;
-
     setDeletingSongId(songId);
     try {
       await deleteSongAction(songId); // Call Server Action
@@ -64,6 +71,7 @@ export default function SongManager({
       showToast("Failed to delete song.", "error");
     } finally {
       setDeletingSongId(null);
+      setConfirmDialog(null);
     }
   };
 
@@ -83,37 +91,38 @@ export default function SongManager({
   return (
     <section className="mb-8 p-6 rounded-lg border border-gray-800 bg-gradient-to-br from-gray-950 to-slate-900 shadow-xl shadow-black/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
-        <h2 className="text-2xl font-semibold text-white">
-          חיפוש וניהול שירים קיימים
+        <h2 className="text-2xl font-semibold text-white" dir="rtl">
+          ניהול רשימת השירים במערכת
         </h2>
         <button
           onClick={handleToggleSongManager}
           className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm transition"
         >
           {showSongManager
-            ? "סגור רשימת שירים"
-            : `הצג רשימת שירים (${allSongs.length})`}
+            ? "הסתר רשימת שירים"
+            : `הצג רשימת שירים (${sortedSongs.length})`}
         </button>
       </div>
       {!showSongManager ? (
-        <p className="text-gray-400">
-          לחץ על "הצג רשימת שירים" כדי לראות ולנהל את כל {allSongs.length}{" "}
-          השירים.
+        <p className="text-gray-400" dir="rtl">
+          לחץ על "הצג רשימת שירים" כדי לראות ולנהל את כל{" "}
+          {sortedSongs.length} השירים.
         </p>
       ) : (
         <>
           <input
             type="text"
-            placeholder="חפש לפי שם, זמר, סולם או קצב..."
+            placeholder="חפש לפי שם שיר, זמר, מלחין או מילת מפתח..."
             value={songSearchTerm}
             onChange={(e) => setSongSearchTerm(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 text-gray-50 px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            dir="rtl"
           />
-          <p className="text-sm text-gray-400 mb-4">
-            מציג {filteredSongs.length} מתוך {allSongs.length} שירים
+          <p className="text-sm text-gray-400 mb-4" dir="rtl">
+            מציג {filteredSongs.length} מתוך {sortedSongs.length} שירים
           </p>
           {filteredSongs.length === 0 ? (
-            <p className="text-center text-gray-400 py-6">
+            <p className="text-center text-gray-400 py-6" dir="rtl">
               לא נמצאו שירים תואמים לחיפוש.
             </p>
           ) : (
@@ -135,8 +144,8 @@ export default function SongManager({
                       >
                         {song.title}
                       </p>
-                      <p className="text-sm font-medium text-amber-300">
-                        {song.Singer || "—"}
+                      <p className="text-sm font-medium text-amber-300" dir="rtl">
+                        {song.Singer || "לא צוין"}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-start gap-2 text-xs font-semibold text-teal-200 sm:justify-end">
@@ -153,10 +162,12 @@ export default function SongManager({
                       onClick={() => handleEdit(song.id)}
                       className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-gradient-to-r from-sky-600 to-blue-600 text-white text-sm font-semibold shadow-lg shadow-sky-900/40 transition hover:brightness-110"
                     >
-                      ערוך
+                      עריכה
                     </button>
                     <button
-                      onClick={() => handleDeleteSong(song.id, song.title)}
+                      onClick={() =>
+                        setConfirmDialog({ id: song.id, title: song.title })
+                      }
                       disabled={deletingSongId === song.id}
                       className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm transition ${
                         deletingSongId === song.id
@@ -172,6 +183,38 @@ export default function SongManager({
             </div>
           )}
         </>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6 text-center shadow-2xl">
+            <h3 className="text-2xl font-semibold text-gray-50 mb-3" dir="rtl">
+              האם למחוק את השיר{" "}
+              <span className="text-emerald-300">{confirmDialog.title}</span>?
+            </h3>
+            <p className="text-gray-300 mb-6" dir="rtl">
+              הפעולה אינה ניתנת לביטול והשיר יוסר לצמיתות.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() =>
+                  handleDeleteSong(confirmDialog.id, confirmDialog.title)
+                }
+                disabled={deletingSongId === confirmDialog.id}
+                className="flex-1 rounded-lg bg-gradient-to-r from-rose-600 to-red-700 text-white font-semibold py-2 shadow-lg shadow-red-900/40 hover:brightness-110 disabled:opacity-60"
+              >
+                {deletingSongId === confirmDialog.id ? "מוחק..." : "מחק"}
+              </button>
+              <button
+                onClick={() => setConfirmDialog(null)}
+                disabled={deletingSongId === confirmDialog.id}
+                className="flex-1 rounded-lg border border-gray-600 text-gray-200 font-semibold py-2 hover:bg-gray-800 disabled:opacity-60"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

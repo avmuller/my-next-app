@@ -63,6 +63,7 @@ export default function AdminUIWrapper({
 
       <SongForm
         initialSongData={songToEdit}
+        allSongs={initialAllSongs}
         uniqueCategories={uniqueCategories}
         showToast={showToast}
         onSuccess={reloadData}

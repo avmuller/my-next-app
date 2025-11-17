@@ -1,6 +1,6 @@
 // src/components/Admin/SongForm.tsx
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Song, SongForm } from "@/types/song";
 import {
@@ -16,8 +16,46 @@ interface FormReadySong extends SongForm {
   id: string;
 }
 
+type MultiValueField = (typeof MULTI_VALUE_FIELDS)[number];
+type SongFormUI = Omit<SongForm, MultiValueField> &
+  Record<MultiValueField, string>;
+
+type SongLike = Song | FormReadySong;
+
+const createEmptyForm = (): SongFormUI =>
+  ({
+    ...initialSongState,
+    Genre: "",
+    Event: "",
+    Season: "",
+  } as unknown as SongFormUI);
+
+const FORM_FIELDS = Object.keys(createEmptyForm()) as Array<keyof SongFormUI>;
+
+const normalizeToUIState = (songData: SongLike | null): SongFormUI => {
+  const empty = createEmptyForm();
+  if (!songData) return empty;
+
+  const filled = { ...empty };
+  (Object.keys(empty) as Array<keyof SongFormUI>).forEach((key) => {
+    const incoming = songData[key as keyof Song];
+    if (incoming == null) return;
+
+    if (MULTI_VALUE_FIELDS.includes(key as keyof Song)) {
+      filled[key as MultiValueField] = Array.isArray(incoming)
+        ? incoming.join(", ")
+        : (incoming as string);
+    } else {
+      filled[key] = incoming as string;
+    }
+  });
+
+  return filled;
+};
+
 interface SongFormProps {
   initialSongData: FormReadySong | null;
+  allSongs: Song[];
   uniqueCategories: Record<string, string[]>;
   showToast: (msg: string, type: ToastType) => void;
   onSuccess: () => void; // Function to trigger data reload on parent
@@ -25,11 +63,12 @@ interface SongFormProps {
 
 export default function SongForm({
   initialSongData,
+  allSongs,
   uniqueCategories,
   showToast,
   onSuccess,
 }: SongFormProps) {
-  const [song, setSong] = useState<SongForm>(initialSongState);
+  const [song, setSong] = useState<SongFormUI>(() => createEmptyForm());
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [queries, setQueries] = useState<Record<string, string>>({});
 
@@ -37,20 +76,47 @@ export default function SongForm({
   const searchParams = useSearchParams();
   const editIdFromURL = searchParams.get("editId");
   const isEditing = !!editIdFromURL;
+  const lastPrefilledId = useRef<string | null>(null);
+
+  const resetFormState = useCallback(() => {
+    setSong(createEmptyForm());
+    setQueries({});
+    lastPrefilledId.current = null;
+  }, []);
+
+  const hydrateForm = useCallback(
+    (source: SongLike) => {
+      setSong(normalizeToUIState(source));
+      setQueries({});
+      if (source.id !== lastPrefilledId.current) {
+        showToast(`Editing song: ${source.title}`, "info");
+        lastPrefilledId.current = source.id;
+      }
+    },
+    [showToast]
+  );
 
   // Sync state with server-fetched edit data
   useEffect(() => {
-    if (initialSongData && initialSongData.id === editIdFromURL) {
-      setSong(initialSongData);
-      showToast(`Editing song: ${initialSongData.title}`, "info");
-    } else if (!editIdFromURL) {
-      setSong(initialSongState);
+    if (initialSongData) {
+      hydrateForm(initialSongData);
+      return;
     }
+
+    if (editIdFromURL) {
+      const fallbackSong = allSongs.find((song) => song.id === editIdFromURL);
+      if (fallbackSong) {
+        hydrateForm(fallbackSong);
+        return;
+      }
+    }
+
+    resetFormState();
     // Note: initialSongData is server-fetched, so dependencies are okay here.
-  }, [initialSongData, editIdFromURL]);
+  }, [initialSongData, editIdFromURL, allSongs, hydrateForm, resetFormState]);
 
   const handleCancelEdit = () => {
-    setSong(initialSongState);
+    resetFormState();
     showToast("Edit canceled.", "info");
     router.replace("/admin");
   };
@@ -59,9 +125,12 @@ export default function SongForm({
     e.preventDefault();
     try {
       // Call Server Action
-      const result = await saveSongAction(song, editIdFromURL);
+      const result = await saveSongAction(
+        song as unknown as SongForm,
+        editIdFromURL
+      );
       showToast(result.message, "success");
-      setSong(initialSongState);
+      resetFormState();
       router.replace("/admin");
       onSuccess(); // Triggers reload of songs/categories on parent
     } catch (error) {
@@ -77,7 +146,7 @@ export default function SongForm({
     setSong((prev) => ({ ...prev, [name]: value }));
   };
 
-  const formFields = Object.keys(initialSongState) as Array<keyof SongForm>;
+  const formFields = FORM_FIELDS;
 
   return (
     <section className="mb-8 p-6 rounded-lg shadow-2xl bg-gray-900">
@@ -91,9 +160,9 @@ export default function SongForm({
           const isAutocomplete = SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE.includes(
             key as keyof Song
           );
-          const isRequired = key === "title" || key === "Singer";
+          const isRequired = key === "title";
           // Value handling for arrays (converted to string on server in fetchSongForEditAction)
-          const value = (song[key] as string) || "";
+          const value = song[key] || "";
 
           return (
             <div key={key} className="relative">
