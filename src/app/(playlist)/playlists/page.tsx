@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePlaylists } from "@/hooks/usePlaylists";
+import { usePlaylistsContext } from "@/contexts/PlaylistsProvider";
 
 export default function PlaylistsPage() {
-  const { playlists, loading, error, createPlaylist } = usePlaylists();
+  const { playlists, loading, error, createPlaylist } =
+    usePlaylistsContext();
   const [newName, setNewName] = useState("");
 
   const handleCreate = async (e: React.FormEvent) => {

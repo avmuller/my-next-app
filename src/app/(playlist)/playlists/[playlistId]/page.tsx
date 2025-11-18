@@ -18,8 +18,9 @@ interface PlaylistResponse {
 export default function PlaylistDetailPage({
   params,
 }: {
-  params: Promise<{ playlistId: string }>;
+  params: { playlistId: string };
 }) {
+  const { playlistId } = params;
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,6 @@ export default function PlaylistDetailPage({
     const load = async () => {
       try {
         setLoading(true);
-        const { playlistId } = await params;
         const response = await fetch(`/api/playlists/${playlistId}`);
         if (!response.ok) {
           throw new Error(await response.text());
@@ -46,7 +46,7 @@ export default function PlaylistDetailPage({
       }
     };
     void load();
-  }, [params]);
+  }, [playlistId]);
 
   if (loading) {
     return (
@@ -72,9 +72,7 @@ export default function PlaylistDetailPage({
       </Link>
       <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
         <h1 className="text-3xl font-bold mb-2">{playlist.name}</h1>
-        <p className="text-sm text-gray-400">
-          {playlist.songIds.length} songs
-        </p>
+        <p className="text-sm text-gray-400">{playlist.songIds.length} songs</p>
       </div>
 
       <div className="space-y-3">

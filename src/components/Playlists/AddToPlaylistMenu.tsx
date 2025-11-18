@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { usePlaylists } from "@/hooks/usePlaylists";
+import { usePlaylistsContext } from "@/contexts/PlaylistsProvider";
 
 interface AddToPlaylistMenuProps {
   songId: string;
@@ -16,8 +16,8 @@ export default function AddToPlaylistMenu({
   songId,
   songTitle,
 }: AddToPlaylistMenuProps) {
-  const { playlists, loading, error, addSong, createPlaylist, reload } =
-    usePlaylists();
+  const { playlists, loading, error, addSong, createPlaylist } =
+    usePlaylistsContext();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [creatingName, setCreatingName] = useState("");
@@ -41,7 +41,6 @@ export default function AddToPlaylistMenu({
       setFeedback("Unable to add this song right now.");
     } finally {
       setBusy(false);
-      void reload();
     }
   };
 
@@ -93,13 +92,7 @@ export default function AddToPlaylistMenu({
             {loading && (
               <p className="text-xs text-gray-500">Loading playlists...</p>
             )}
-            {error && (
-              <p className="text-xs text-red-400">
-                {error.includes("Unauthorized")
-                  ? "Please log in to manage playlists."
-                  : "Failed to load playlists."}
-              </p>
-            )}
+            {error && <p className="text-xs text-red-400">{error}</p>}
             {!loading && filtered.length === 0 ? (
               <p className="text-xs text-gray-500">
                 No playlists match this search.
