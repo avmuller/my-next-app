@@ -1,5 +1,6 @@
 // src/components/Admin/SongManager.tsx
 "use client";
+
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Song } from "@/types/song";
@@ -9,7 +10,7 @@ import { ToastType } from "./AdminToast";
 interface SongManagerProps {
   initialAllSongs: Song[];
   showToast: (msg: string, type: ToastType) => void;
-  onDelete: () => void; // Function to trigger data reload on parent
+  onDelete: () => void;
 }
 
 export default function SongManager({
@@ -27,7 +28,6 @@ export default function SongManager({
     title: string;
   } | null>(null);
 
-  // Sync internal state when props change (after server reload/action)
   useEffect(() => {
     setAllSongs(initialAllSongs);
   }, [initialAllSongs]);
@@ -59,16 +59,16 @@ export default function SongManager({
     });
   }, [sortedSongs, songSearchTerm]);
 
-  const handleDeleteSong = async (songId: string, title: string) => {
+  const handleDeleteSong = async (songId: string) => {
     setDeletingSongId(songId);
     try {
-      await deleteSongAction(songId); // Call Server Action
+      await deleteSongAction(songId);
       setAllSongs((prev) => prev.filter((song) => song.id !== songId));
-      onDelete(); // Notify parent to refresh categories
-      showToast("Song deleted.", "success");
+      onDelete();
+      showToast("השיר נמחק.", "success");
     } catch (error) {
       console.error("Error deleting song:", error);
-      showToast("Failed to delete song.", "error");
+      showToast("מחיקת השיר נכשלה.", "error");
     } finally {
       setDeletingSongId(null);
       setConfirmDialog(null);
@@ -84,29 +84,27 @@ export default function SongManager({
   };
 
   const handleEdit = (songId: string) => {
-    // Uses router.replace to update the URL parameter which triggers server re-render
     router.replace(`/admin?editId=${songId}`);
   };
 
   return (
     <section className="mb-8 p-6 rounded-lg border border-gray-800 bg-gradient-to-br from-gray-950 to-slate-900 shadow-xl shadow-black/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
-        <h2 className="text-2xl font-semibold text-white" dir="rtl">
-          ניהול רשימת השירים במערכת
+        <h2 className="text-2xl font-semibold text-white">
+          ניהול רשימת השירים
         </h2>
         <button
           onClick={handleToggleSongManager}
           className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-50 text-sm transition"
         >
           {showSongManager
-            ? "הסתר רשימת שירים"
-            : `הצג רשימת שירים (${sortedSongs.length})`}
+            ? "הסתר רשימה"
+            : `הצג רשימה (${sortedSongs.length})`}
         </button>
       </div>
       {!showSongManager ? (
         <p className="text-gray-400" dir="rtl">
-          לחץ על "הצג רשימת שירים" כדי לראות ולנהל את כל{" "}
-          {sortedSongs.length} השירים.
+          לחץ על &quot;הצג רשימה&quot; כדי לראות ולנהל את כל השירים.
         </p>
       ) : (
         <>
@@ -122,8 +120,8 @@ export default function SongManager({
             מציג {filteredSongs.length} מתוך {sortedSongs.length} שירים
           </p>
           {filteredSongs.length === 0 ? (
-            <p className="text-center text-gray-400 py-6" dir="rtl">
-              לא נמצאו שירים תואמים לחיפוש.
+            <p className="text-center text-gray-400 py-6">
+              לא נמצאו שירים מתאימים.
             </p>
           ) : (
             <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
@@ -138,10 +136,7 @@ export default function SongManager({
                   />
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="text-right">
-                      <p
-                        className="text-lg font-semibold text-gray-50"
-                        dir="rtl"
-                      >
+                      <p className="text-lg font-semibold text-gray-50" dir="rtl">
                         {song.title}
                       </p>
                       <p className="text-sm font-medium text-amber-300" dir="rtl">
@@ -166,7 +161,10 @@ export default function SongManager({
                     </button>
                     <button
                       onClick={() =>
-                        setConfirmDialog({ id: song.id, title: song.title })
+                        setConfirmDialog({
+                          id: song.id,
+                          title: song.title || "ללא שם",
+                        })
                       }
                       disabled={deletingSongId === song.id}
                       className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm transition ${
@@ -189,17 +187,15 @@ export default function SongManager({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6 text-center shadow-2xl">
             <h3 className="text-2xl font-semibold text-gray-50 mb-3" dir="rtl">
-              האם למחוק את השיר{" "}
+              למחוק את השיר{" "}
               <span className="text-emerald-300">{confirmDialog.title}</span>?
             </h3>
             <p className="text-gray-300 mb-6" dir="rtl">
-              הפעולה אינה ניתנת לביטול והשיר יוסר לצמיתות.
+              המחיקה סופית ולא ניתן לשחזר את השיר לאחר מכן.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() =>
-                  handleDeleteSong(confirmDialog.id, confirmDialog.title)
-                }
+                onClick={() => handleDeleteSong(confirmDialog.id)}
                 disabled={deletingSongId === confirmDialog.id}
                 className="flex-1 rounded-lg bg-gradient-to-r from-rose-600 to-red-700 text-white font-semibold py-2 shadow-lg shadow-red-900/40 hover:brightness-110 disabled:opacity-60"
               >

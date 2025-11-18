@@ -10,11 +10,13 @@ interface ExcelImportProps {
   onSuccess: () => void;
 }
 
+type ExcelJsonRow = Record<string, unknown>;
+
 export default function ExcelImport({
   showToast,
   onSuccess,
 }: ExcelImportProps) {
-  const [excelData, setExcelData] = useState<any[]>([]);
+  const [excelData, setExcelData] = useState<ExcelJsonRow[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,12 +29,11 @@ export default function ExcelImport({
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Note: Using raw JSON output here, the Server Action handles the final cleanup
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const json = XLSX.utils.sheet_to_json<ExcelJsonRow>(worksheet);
         setExcelData(json);
-        showToast(`Excel file loaded. Found ${json.length} rows.`, "info");
+        showToast(`קובץ נטען בהצלחה (${json.length} שורות).`, "info");
       } catch (error) {
-        showToast("Error processing Excel file.", "error");
+        showToast("שגיאה בקריאת הקובץ.", "error");
         console.error("Excel Read Error:", error);
       }
     };
@@ -41,18 +42,17 @@ export default function ExcelImport({
 
   const handleImportClick = async () => {
     if (excelData.length === 0) {
-      showToast("No data to import.", "info");
+      showToast("אין נתונים לייבוא.", "info");
       return;
     }
 
     try {
-      // Call Server Action with the raw Excel data
       const result = await importExcelAction(excelData);
       showToast(result.message, "success");
       setExcelData([]);
-      onSuccess(); // Triggers reload of songs/categories on parent
+      onSuccess();
     } catch (error) {
-      showToast("❌ Error during import process.", "error");
+      showToast("אירעה שגיאה בזמן הייבוא.", "error");
       console.error("Import Action Error:", error);
     }
   };
@@ -60,7 +60,7 @@ export default function ExcelImport({
   return (
     <section className="mb-8 p-6 rounded-lg shadow-md bg-gray-900">
       <h2 className="text-2xl font-semibold mb-4 text-white">
-        ייבוא שירים מ-Excel
+        יבוא שירים מתוך קובץ Excel
       </h2>
       <div className="flex flex-col gap-4">
         <input
@@ -78,7 +78,7 @@ export default function ExcelImport({
               : "bg-gray-600 cursor-not-allowed"
           }`}
         >
-          ייבא {excelData.length} שירים ל-Firebase
+          ייבוא {excelData.length} שירים ל-Firebase
         </button>
       </div>
     </section>

@@ -2,17 +2,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-
-const items = [
-  { href: "/", label: "Home", icon: "🏠" },
-  { href: "/playlists", label: "My Playlists", icon: "📚" },
-  { href: "/search", label: "Search", icon: "🔎" },
-];
-
-const navItems = [...items, { href: "/admin", label: "Admin", icon: "⚙️" }];
+import { useAuth } from "@/components/Auth/AuthProvider";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const navItems = [
+    { href: "/", label: "Home", icon: "🏠" },
+    { href: "/playlists", label: "Playlists", icon: "🎵" },
+    { href: "/search", label: "Search", icon: "🔍" },
+    {
+      href: "/login",
+      label: user ? "Account" : "Login",
+      icon: user ? "👤" : "🔐",
+    },
+  ];
 
   return (
     <nav className="fixed bottom-0 inset-x-0 h-16 z-20 bg-gray-800 shadow-2xl border-t border-gray-700">
@@ -38,4 +43,3 @@ export default function BottomNav() {
     </nav>
   );
 }
-

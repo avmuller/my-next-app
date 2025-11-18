@@ -4,6 +4,7 @@
 "use server";
 
 import { db } from "@/lib/firebase";
+import { requireAdminUser } from "@/lib/auth/server";
 import {
   collection,
   addDoc,
@@ -26,19 +27,10 @@ interface FormReadySong extends SongForm {
   id: string;
 }
 
-// **********************************************
-// TODO: SECURITY CHECK PLACEHOLDER (Will be implemented in the next phase)
-// This must be replaced with real Firebase Admin Auth check later.
-const checkAdminAuth = async () => {
-  // For now, return true to allow UI development.
-  // In the login phase, this will verify the session cookie claims (admin: true).
-  return true;
-};
-// **********************************************
-
 // Utility to fetch unique categories and all songs (Server Read operation)
 // Used to supply initial data to client components.
 export const getAdminInitialData = async () => {
+  await requireAdminUser();
   const songsCollection = collection(db, "songs");
   const songSnapshot = await getDocs(songsCollection);
   const allData: Song[] = songSnapshot.docs.map(
@@ -56,11 +48,11 @@ export const getAdminInitialData = async () => {
 
   allData.forEach((song) => {
     FIELDS_FOR_UNIQUE_FETCH.forEach((field) => {
-      const value = (song as any)[field];
+      const value = song[field as keyof Song];
       if (Array.isArray(value)) {
         value.forEach((item) => item && uniqueData[field as string].add(item));
-      } else if (value) {
-        uniqueData[field as string].add(String(value));
+      } else if (typeof value === "string" && value.trim().length > 0) {
+        uniqueData[field as string].add(value);
       }
     });
   });
@@ -79,7 +71,11 @@ export const getAdminInitialData = async () => {
 export const fetchSongForEditAction = async (
   id: string
 ): Promise<FormReadySong | null> => {
-  if (!(await checkAdminAuth())) return null;
+  try {
+    await requireAdminUser();
+  } catch {
+    return null;
+  }
 
   const docRef = doc(db, "songs", id);
   const docSnap = await getDoc(docRef);
@@ -121,7 +117,7 @@ export const saveSongAction = async (
   songData: SongForm,
   editingId: string | null
 ) => {
-  if (!(await checkAdminAuth())) throw new Error("Unauthorized");
+  await requireAdminUser();
 
   // Re-process string fields to arrays using splitAndClean utility
   const processedSongData = {
@@ -149,28 +145,33 @@ export const saveSongAction = async (
 };
 
 // Action to import songs from parsed Excel data (Server Mutation)
-export const importExcelAction = async (excelData: any[]) => {
-  if (!(await checkAdminAuth())) throw new Error("Unauthorized");
+type ExcelRow = Record<string, string | string[] | undefined>;
+
+export const importExcelAction = async (excelData: ExcelRow[]) => {
+  await requireAdminUser();
 
   let successfulImports = 0;
   const songsCollection = collection(db, "songs");
 
   for (const row of excelData) {
     try {
+      const getValue = (key: string) =>
+        row[key] && typeof row[key] === "string" ? (row[key] as string) : "";
+
       // NOTE: Excel data normalization must happen on the client before calling this action,
       // but the cleaning (splitAndClean) is performed here for final verification.
       const songData: Omit<Song, "id"> = {
-        title: row["Song"] || row["title"] || "",
-        Beat: row["Beat"] || "",
-        Key: row["Key"] || "",
-        Theme: row["Theme"] || "",
-        Composer: row["Composer"] || "",
-        Singer: row["Singer"] || "",
-        Season: splitAndClean(row["Season"]),
-        hasidut: row["hasidut"] || "",
-        Lyrics: row["Lyrics"] || "",
-        Genre: splitAndClean(row["Genre"]),
-        Event: splitAndClean(row["Event"]),
+        title: getValue("Song") || getValue("title"),
+        Beat: getValue("Beat"),
+        Key: getValue("Key"),
+        Theme: getValue("Theme"),
+        Composer: getValue("Composer"),
+        Singer: getValue("Singer"),
+        Season: splitAndClean(row["Season"] ?? ""),
+        hasidut: getValue("hasidut"),
+        Lyrics: getValue("Lyrics"),
+        Genre: splitAndClean(row["Genre"] ?? ""),
+        Event: splitAndClean(row["Event"] ?? ""),
       };
 
       await addDoc(songsCollection, songData);
@@ -188,7 +189,7 @@ export const importExcelAction = async (excelData: any[]) => {
 
 // Action to delete a song (Server Mutation)
 export const deleteSongAction = async (songId: string) => {
-  if (!(await checkAdminAuth())) throw new Error("Unauthorized");
+  await requireAdminUser();
 
   await deleteDoc(doc(db, "songs", songId));
   return { success: true, message: "Song deleted." };

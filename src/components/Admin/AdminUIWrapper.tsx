@@ -58,7 +58,7 @@ export default function AdminUIWrapper({
       {toast && <AdminToast toast={toast} onClose={() => setToast(null)} />}
 
       <h1 className="text-3xl font-bold mb-6 text-center text-gray-50">
-        פנל ניהול שירים 🎵
+        אזור הניהול של ספר השירים
       </h1>
 
       <SongForm
