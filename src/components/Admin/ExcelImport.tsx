@@ -1,5 +1,5 @@
-// src/components/Admin/ExcelImport.tsx
 "use client";
+
 import React, { useState } from "react";
 import * as XLSX from "xlsx";
 import { importExcelAction } from "@/app/admin/actions";
@@ -10,13 +10,29 @@ interface ExcelImportProps {
   onSuccess: () => void;
 }
 
-type ExcelJsonRow = Record<string, unknown>;
+type ExcelRow = Record<string, string | string[] | undefined>;
 
 export default function ExcelImport({
   showToast,
   onSuccess,
 }: ExcelImportProps) {
-  const [excelData, setExcelData] = useState<ExcelJsonRow[]>([]);
+  const [excelData, setExcelData] = useState<ExcelRow[]>([]);
+
+  const normalizeRow = (row: Record<string, unknown>): ExcelRow => {
+    const normalized: ExcelRow = {};
+    Object.entries(row).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        normalized[key] = value.map((item) =>
+          typeof item === "string" ? item : String(item ?? "")
+        );
+      } else if (value === null || value === undefined) {
+        normalized[key] = undefined;
+      } else {
+        normalized[key] = typeof value === "string" ? value : String(value);
+      }
+    });
+    return normalized;
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,11 +45,16 @@ export default function ExcelImport({
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<ExcelJsonRow>(worksheet);
-        setExcelData(json);
-        showToast(`קובץ נטען בהצלחה (${json.length} שורות).`, "info");
+        const rawRows =
+          XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+        const normalizedRows = rawRows.map(normalizeRow);
+        setExcelData(normalizedRows);
+        showToast(
+          `Loaded ${normalizedRows.length} songs from the Excel sheet.`,
+          "info"
+        );
       } catch (error) {
-        showToast("שגיאה בקריאת הקובץ.", "error");
+        showToast("Unable to read Excel file.", "error");
         console.error("Excel Read Error:", error);
       }
     };
@@ -42,7 +63,7 @@ export default function ExcelImport({
 
   const handleImportClick = async () => {
     if (excelData.length === 0) {
-      showToast("אין נתונים לייבוא.", "info");
+      showToast("Please upload a spreadsheet before importing.", "info");
       return;
     }
 
@@ -52,33 +73,33 @@ export default function ExcelImport({
       setExcelData([]);
       onSuccess();
     } catch (error) {
-      showToast("אירעה שגיאה בזמן הייבוא.", "error");
+      showToast("Failed to import the spreadsheet.", "error");
       console.error("Import Action Error:", error);
     }
   };
 
   return (
-    <section className="mb-8 p-6 rounded-lg shadow-md bg-gray-900">
-      <h2 className="text-2xl font-semibold mb-4 text-white">
-        יבוא שירים מתוך קובץ Excel
+    <section className="mb-8 rounded-lg bg-gray-900 p-6 shadow-md">
+      <h2 className="mb-4 text-2xl font-semibold text-white">
+        Import songs from Excel
       </h2>
       <div className="flex flex-col gap-4">
         <input
           type="file"
           accept=".xlsx, .xls"
           onChange={handleFileChange}
-          className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-teal-400 hover:file:bg-gray-600"
+          className="block w-full text-sm text-gray-400 file:mr-4 file:rounded-full file:border-0 file:bg-gray-700 file:px-4 file:py-2 file:font-semibold file:text-teal-400 hover:file:bg-gray-600"
         />
         <button
           onClick={handleImportClick}
           disabled={excelData.length === 0}
-          className={`py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white ${
+          className={`rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm ${
             excelData.length > 0
               ? "bg-purple-600 hover:bg-purple-700"
-              : "bg-gray-600 cursor-not-allowed"
+              : "cursor-not-allowed bg-gray-600"
           }`}
         >
-          ייבוא {excelData.length} שירים ל-Firebase
+          Import {excelData.length} rows to Firebase
         </button>
       </div>
     </section>
