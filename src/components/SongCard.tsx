@@ -27,24 +27,28 @@ export default function SongCard({ song }: SongCardProps) {
           <div className="flex items-start gap-2">
             <AddToPlaylistMenu songId={song.id} songTitle={song.title} />
             <div className="flex flex-col items-start gap-2 md:gap-3">
-            {song.Key ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 border border-teal-500/40 text-teal-100 px-2.5 py-0.5 text-xs md:text-sm md:px-3 md:py-1">
-                <span className="font-medium text-teal-200">Key</span>
-                <span className="text-teal-400/70" aria-hidden>
-                  |
+              {song.Key ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 border border-teal-500/40 text-teal-100 px-2.5 py-0.5 text-xs md:text-sm md:px-3 md:py-1">
+                  <span className="font-medium text-teal-200">Key</span>
+                  <span className="text-teal-400/70" aria-hidden>
+                    |
+                  </span>
+                  <span className="font-semibold text-teal-300">
+                    {song.Key}
+                  </span>
                 </span>
-                <span className="font-semibold text-teal-300">{song.Key}</span>
-              </span>
-            ) : null}
-            {song.Beat ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-400/40 text-cyan-100 px-2.5 py-0.5 text-xs md:text-sm md:px-3 md:py-1">
-                <span className="font-medium text-cyan-200">Beat</span>
-                <span className="text-cyan-400/70" aria-hidden>
-                  |
+              ) : null}
+              {song.Beat ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-400/40 text-cyan-100 px-2.5 py-0.5 text-xs md:text-sm md:px-3 md:py-1">
+                  <span className="font-medium text-cyan-200">Beat</span>
+                  <span className="text-cyan-400/70" aria-hidden>
+                    |
+                  </span>
+                  <span className="font-semibold text-cyan-300">
+                    {song.Beat}
+                  </span>
                 </span>
-                <span className="font-semibold text-cyan-300">{song.Beat}</span>
-              </span>
-            ) : null}
+              ) : null}
             </div>
           </div>
           {/* Right: Title (RTL) + Singer under */}

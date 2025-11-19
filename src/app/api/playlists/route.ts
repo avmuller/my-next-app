@@ -18,8 +18,8 @@ const sanitizeName = (name: string) => {
   return trimmed.slice(0, 60);
 };
 
-export async function GET() {
-  const user = await requireAuthenticatedUser();
+export async function GET(request: Request) {
+  const user = await requireAuthenticatedUser(request);
   const q = query(playlistsCollection, where("ownerUid", "==", user.uid));
   const snapshot = await getDocs(q);
   const playlists = snapshot.docs.map((docSnap) => {
@@ -34,7 +34,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedUser(request);
   const body = await request.json();
   const playlistName = sanitizeName(body?.name || "");
   await addDoc(playlistsCollection, {

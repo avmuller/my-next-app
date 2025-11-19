@@ -25,11 +25,15 @@ const AuthContext = createContext<AuthContextValue>({
 const syncSessionCookie = async (token: string | null) => {
   try {
     if (!token) {
-      await fetch("/api/auth/session", { method: "DELETE" });
+      await fetch("/api/auth/session", {
+        method: "DELETE",
+        credentials: "include",
+      });
       return;
     }
     await fetch("/api/auth/session", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken: token }),
     });

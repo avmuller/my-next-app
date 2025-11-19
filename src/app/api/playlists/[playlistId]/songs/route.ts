@@ -21,7 +21,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ playlistId: string }> }
 ) {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedUser(request);
   const body = await request.json();
   const songId = body?.songId as string;
   if (!songId) {
@@ -40,7 +40,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ playlistId: string }> }
 ) {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedUser(request);
   const body = await request.json();
   const songId = body?.songId as string;
   if (!songId) {

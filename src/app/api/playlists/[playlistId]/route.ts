@@ -41,10 +41,10 @@ const fetchSongsByIds = async (ids: string[]): Promise<Song[]> => {
 };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ playlistId: string }> }
 ) {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedUser(request);
   const { playlistId } = await params;
   const playlistSnap = await getDoc(playlistDoc(playlistId));
   if (!playlistSnap.exists()) {

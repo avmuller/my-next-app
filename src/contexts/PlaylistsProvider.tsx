@@ -1,7 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { PlaylistSummary } from "@/types/playlist";
+import { useAuth } from "@/components/Auth/AuthProvider";
 
 interface PlaylistsContextValue {
   playlists: PlaylistSummary[];
@@ -22,6 +30,7 @@ const fetchJSON = async <T,>(input: RequestInfo, init?: RequestInit) => {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
+    credentials: "include",
   });
   if (!response.ok) {
     const message = await response.text();
@@ -37,40 +46,70 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
   const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
 
-  const load = async () => {
+  const requireAuth = () => {
+    if (!user) {
+      throw new Error("Please log in to manage playlists.");
+    }
+  };
+
+  const getAuthHeaders = useCallback(async (): Promise<HeadersInit | undefined> => {
+    if (!user) return undefined;
+    const token = await user.getIdToken();
+    return { Authorization: `Bearer ${token}` };
+  }, [user]);
+
+  const load = useCallback(async () => {
+    if (!user) {
+      setPlaylists([]);
+      setError("Please log in to manage playlists.");
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
+      setError(null);
+      const headers = await getAuthHeaders();
       const data = await fetchJSON<{ playlists: PlaylistSummary[] }>(
-        "/api/playlists"
+        "/api/playlists",
+        { headers }
       );
       setPlaylists(data.playlists);
-      setError(null);
     } catch (err) {
       console.error("Failed to load playlists:", err);
       if (err instanceof Error && err.message === "Unauthorized Access") {
         setError("Please log in to manage playlists.");
+        setPlaylists([]);
       } else {
         setError("Unable to load playlists.");
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, getAuthHeaders]);
 
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
     void load();
-  }, []);
+  }, [authLoading, load]);
 
   const createPlaylist = async (name: string) => {
+    requireAuth();
+    const headers = await getAuthHeaders();
     await fetchJSON("/api/playlists", {
       method: "POST",
+      headers,
       body: JSON.stringify({ name }),
     });
     await load();
   };
 
   const addSong = async (playlistId: string, songId: string) => {
+    requireAuth();
     setPlaylists((prev) =>
       prev.map((playlist) =>
         playlist.id === playlistId &&
@@ -80,8 +119,10 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
       )
     );
     try {
+      const headers = await getAuthHeaders();
       await fetchJSON(`/api/playlists/${playlistId}/songs`, {
         method: "POST",
+        headers,
         body: JSON.stringify({ songId }),
       });
     } catch (err) {
@@ -100,6 +141,7 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeSong = async (playlistId: string, songId: string) => {
+    requireAuth();
     setPlaylists((prev) =>
       prev.map((playlist) =>
         playlist.id === playlistId
@@ -111,8 +153,10 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
       )
     );
     try {
+      const headers = await getAuthHeaders();
       await fetchJSON(`/api/playlists/${playlistId}/songs`, {
         method: "DELETE",
+        headers,
         body: JSON.stringify({ songId }),
       });
     } catch (err) {
@@ -137,7 +181,7 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
       addSong,
       removeSong,
     }),
-    [playlists, loading, error]
+    [playlists, loading, error, load]
   );
 
   return (

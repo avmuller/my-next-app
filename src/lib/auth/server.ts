@@ -35,7 +35,26 @@ export const requireAdminUser = async (): Promise<SessionUser> => {
   return user;
 };
 
-export const requireAuthenticatedUser = async (): Promise<SessionUser> => {
+const getBearerToken = (request?: Request): string | null => {
+  if (!request) return null;
+  const header = request.headers.get("authorization");
+  if (!header) return null;
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : null;
+};
+
+export const requireAuthenticatedUser = async (
+  request?: Request
+): Promise<SessionUser> => {
+  const auth = getAdminAuth();
+  const bearer = getBearerToken(request);
+  if (bearer) {
+    try {
+      return await auth.verifyIdToken(bearer, true);
+    } catch {
+      // Fallback to cookie verification
+    }
+  }
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("Unauthorized");

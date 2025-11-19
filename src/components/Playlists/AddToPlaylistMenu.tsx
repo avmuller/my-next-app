@@ -1,3 +1,4 @@
+// src/components/Playlists/AddToPlaylistMenu.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -75,7 +76,9 @@ export default function AddToPlaylistMenu({
       </button>
       {open && (
         <div
-          className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-800 bg-gray-950 p-4 shadow-xl"
+          // ⚠️ FIX: Changed 'right-0' to 'left-0' and added mobile-friendly max-width.
+          // max-w-[calc(100vw-32px)] ensures it doesn't overflow the viewport on small screens.
+          className="absolute left-0 mt-2 w-64 z-30 max-w-[calc(100vw-32px)] rounded-xl border border-gray-800 bg-gray-950 p-4 shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-sm font-semibold text-gray-200 mb-2">
@@ -127,9 +130,7 @@ export default function AddToPlaylistMenu({
               Create playlist
             </button>
           </form>
-          {feedback && (
-            <p className="text-xs text-teal-300 mt-2">{feedback}</p>
-          )}
+          {feedback && <p className="text-xs text-teal-300 mt-2">{feedback}</p>}
         </div>
       )}
     </div>
