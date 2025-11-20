@@ -1,10 +1,7 @@
-// src/app/songs/[category]/[sub]/[section]/page.tsx
-// Purpose: Display the Meal/Dance (or any extra) section under a specific sub-category.
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { db } from "@/lib/firebase";
 import {
   collection,
   getDocs,
@@ -12,14 +9,24 @@ import {
   where,
   QueryConstraint,
 } from "firebase/firestore";
+import clsx from "clsx";
+import { db } from "@/lib/firebase";
 import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
 import { primaryCategories } from "@/data/categories";
-import clsx from "clsx";
-import { createCombinedSortComparator } from "@/lib/sortingUtils";
 
-const weddingLabels = ["wedding", "חתונה", "chatuna", "chasuna", "chassuna"];
+const weddingLabels = ["wedding", "chatuna", "chasuna", "chassuna", "hatuna"];
 const danceBeatTriggers = ["frailach", "freilach", "hora"];
+
+const normalizeBeatLabel = (value?: string | null) => {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "Other";
+  const lower = trimmed.toLowerCase();
+  if (trimmed.includes(",") || lower.includes("rhythm")) {
+    return "Rhythm Changes";
+  }
+  return trimmed;
+};
 
 export default function WeddingSectionSongsPage() {
   const router = useRouter();
@@ -43,8 +50,8 @@ export default function WeddingSectionSongsPage() {
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>([]);
-  const [sortByBeat, setSortByBeat] = useState(false);
-  const [sortByKey, setSortByKey] = useState(false);
+  const [selectedBeat, setSelectedBeat] = useState<string>("ALL");
+  const [sortMode, setSortMode] = useState<"alpha" | "key">("alpha");
 
   const fetchSongs = async () => {
     setLoading(true);
@@ -57,9 +64,11 @@ export default function WeddingSectionSongsPage() {
       const isArrayField = ["Genre", "Event", "Season"].includes(fieldName);
 
       const constraints: QueryConstraint[] = [];
-      if (isArrayField)
+      if (isArrayField) {
         constraints.push(where(fieldName, "array-contains", decodedSub));
-      else constraints.push(where(fieldName, "==", decodedSub));
+      } else {
+        constraints.push(where(fieldName, "==", decodedSub));
+      }
 
       const q = query(songsCollectionRef, ...constraints);
       const songSnapshot = await getDocs(q);
@@ -85,48 +94,68 @@ export default function WeddingSectionSongsPage() {
 
   useEffect(() => {
     fetchSongs();
+    setSelectedBeat("ALL");
+    setSortMode("alpha");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, sub]);
+  }, [category, sub, section]);
 
-  const filteredAndSortedSongs = useMemo(() => {
-    let resultSongs = songs;
+  const { availableBeats, filteredSongs } = useMemo(() => {
+    let baseSongs = songs;
     const q = queryText.toLowerCase().trim();
 
-    if (queryText) {
-      resultSongs = resultSongs.filter(
-        (s) =>
-          s.title.toLowerCase().includes(q) || s.Key.toLowerCase().includes(q)
+    if (q) {
+      baseSongs = baseSongs.filter(
+        (song) =>
+          song.title.toLowerCase().includes(q) ||
+          (song.Key || "").toLowerCase().includes(q)
       );
     }
 
-    resultSongs = [...resultSongs];
-    const comparator = createCombinedSortComparator(sortByBeat, sortByKey);
-    if (sortByBeat || sortByKey) {
-      resultSongs.sort(comparator);
+    if (isWeddingCategory && (isDanceSection || isMealSection)) {
+      baseSongs = baseSongs.filter((song) => {
+        const beatValue = (song.Beat || "").toString().toLowerCase();
+        const isDanceSong = danceBeatTriggers.some((beat) =>
+          beatValue.includes(beat)
+        );
+        return isDanceSection ? isDanceSong : !isDanceSong;
+      });
+    }
+
+    const beats = new Set<string>();
+    baseSongs.forEach((song) => beats.add(normalizeBeatLabel(song.Beat)));
+
+    let beatFiltered = baseSongs;
+    if (selectedBeat !== "ALL") {
+      beatFiltered = baseSongs.filter((song) => {
+        const beatLabel = normalizeBeatLabel(song.Beat);
+        return beatLabel === selectedBeat;
+      });
+    }
+
+    const sortedSongs = [...beatFiltered];
+    if (sortMode === "key") {
+      sortedSongs.sort((a, b) => {
+        const keyCompare = (a.Key || "").localeCompare(b.Key || "", "en");
+        if (keyCompare !== 0) return keyCompare;
+        return a.title.localeCompare(b.title, "he");
+      });
     } else {
-      resultSongs.sort((a, b) => a.title.localeCompare(b.title, "he"));
+      sortedSongs.sort((a, b) => a.title.localeCompare(b.title, "he"));
     }
 
-    return resultSongs;
-  }, [songs, queryText, sortByBeat, sortByKey]);
+    const beatList = Array.from(beats).sort((a, b) =>
+      a.localeCompare(b, "en")
+    );
 
-  const sectionFilteredSongs = useMemo(() => {
-    if (!isWeddingCategory || (!isDanceSection && !isMealSection)) {
-      return filteredAndSortedSongs;
-    }
-
-    return filteredAndSortedSongs.filter((song) => {
-      const beatValue = (song.Beat || "").toString().toLowerCase();
-      const isDanceSong = danceBeatTriggers.some((beat) =>
-        beatValue.includes(beat)
-      );
-      return isDanceSection ? isDanceSong : !isDanceSong;
-    });
+    return { availableBeats: beatList, filteredSongs: sortedSongs };
   }, [
-    filteredAndSortedSongs,
-    isWeddingCategory,
+    songs,
+    queryText,
+    selectedBeat,
+    sortMode,
     isDanceSection,
     isMealSection,
+    isWeddingCategory,
   ]);
 
   const sectionTitle = isDanceSection
@@ -166,49 +195,81 @@ export default function WeddingSectionSongsPage() {
         />
       </div>
 
+      {availableBeats.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm text-gray-400">Filter by beat</p>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <button
+              onClick={() => setSelectedBeat("ALL")}
+              className={clsx(
+                "rounded-full px-4 py-1.5 text-sm font-medium transition shadow-sm",
+                selectedBeat === "ALL"
+                  ? "bg-teal-500 text-gray-900"
+                  : "bg-gray-700 text-gray-50 hover:bg-gray-600"
+              )}
+            >
+              All beats
+            </button>
+            {availableBeats.map((beat) => (
+              <button
+                key={beat}
+                onClick={() => setSelectedBeat(beat)}
+                className={clsx(
+                  "rounded-full px-4 py-1.5 text-sm font-medium transition whitespace-nowrap shadow-sm",
+                  selectedBeat === beat
+                    ? "bg-teal-400 text-gray-900"
+                    : "bg-gray-800 text-gray-100 hover:bg-gray-700"
+                )}
+              >
+                {beat}
+              </button>
+            ))}
+          </div>
+          {availableBeats.length > 3 && (
+            <p className="text-xs text-gray-500 text-right pr-1">
+              ← Swipe horizontally to view more
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setSortByBeat(!sortByBeat)}
+          onClick={() => setSortMode("alpha")}
           className={clsx(
             "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
-            sortByBeat
+            sortMode === "alpha"
               ? "bg-teal-500 text-gray-900"
               : "bg-gray-700 text-gray-50 hover:bg-gray-600"
           )}
         >
-          Sort by Beat first
+          Sort A-Z
         </button>
         <button
-          onClick={() => setSortByKey(!sortByKey)}
+          onClick={() => setSortMode("key")}
           className={clsx(
             "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition",
-            sortByKey
+            sortMode === "key"
               ? "bg-teal-500 text-gray-900"
               : "bg-gray-700 text-gray-50 hover:bg-gray-600"
           )}
         >
-          Sort by Key first
+          Sort by key
         </button>
       </div>
 
       <p className="text-xs text-gray-400 text-center pt-2">
-        {sortByBeat && sortByKey && "Sort order: Beat > Key > A–Z"}
-        {sortByBeat && !sortByKey && "Sort order: Beat > A–Z"}
-        {!sortByBeat && sortByKey && "Sort order: Key > A–Z"}
-        {!sortByBeat && !sortByKey && "Sort order: A–Z"}
+        {sortMode === "alpha"
+          ? "Alphabetical order"
+          : "Key order (alphabetical within each key)"}
       </p>
 
       {loading ? (
         <p className="text-center text-teal-400 py-10">Loading songs...</p>
       ) : (
         <div className="grid gap-3 pb-24">
-          {sectionFilteredSongs.length > 0 ? (
-            sectionFilteredSongs.map((song) => (
-              <SongCard
-                key={song.id}
-                song={song}
-              />
-            ))
+          {filteredSongs.length > 0 ? (
+            filteredSongs.map((song) => <SongCard key={song.id} song={song} />)
           ) : (
             <p className="text-gray-400 text-center py-10">
               No songs found for "{decodedSection}"
