@@ -43,6 +43,13 @@ export default function WeddingSectionSongsPage() {
   );
   const isDanceSection = normalizedSection === "dance";
   const isMealSection = normalizedSection === "meal";
+  const isKabolasSection = [
+    "kabolat",
+    "kabalat",
+    "kabolath",
+    "kabolas",
+    "kabbolas",
+  ].some((marker) => normalizedSection.includes(marker));
 
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,16 +69,16 @@ export default function WeddingSectionSongsPage() {
         fieldName
       );
 
-      const constraints: QueryConstraint[] = [];
-      if (isArrayField) {
-        constraints.push(where(fieldName, "array-contains", decodedSub));
-      } else {
-        constraints.push(where(fieldName, "==", decodedSub));
-      }
-
-      const q = query(songsCollectionRef, ...constraints);
-      const songSnapshot = await getDocs(q);
-      const fetchedSongs: Song[] = songSnapshot.docs.map((doc) => {
+      const fetchByValue = async (value: string) => {
+        const constraints: QueryConstraint[] = [];
+        if (isArrayField) {
+          constraints.push(where(fieldName, "array-contains", value));
+        } else {
+          constraints.push(where(fieldName, "==", value));
+        }
+        const q = query(songsCollectionRef, ...constraints);
+        const snap = await getDocs(q);
+        return snap.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -83,8 +90,21 @@ export default function WeddingSectionSongsPage() {
             Theme: splitAndClean(data.Theme),
           } as Song;
         });
+      };
 
-      setSongs(fetchedSongs);
+      const primarySongs = await fetchByValue(decodedSub);
+      let mergedSongs = [...primarySongs];
+
+      if (isWeddingCategory && isKabolasSection) {
+        const kabolasSongs = await fetchByValue(decodedSection);
+        const byId: Record<string, Song> = {};
+        [...primarySongs, ...kabolasSongs].forEach((song) => {
+          byId[song.id] = song;
+        });
+        mergedSongs = Object.values(byId);
+      }
+
+      setSongs(mergedSongs);
     } catch (error) {
       console.error("Error fetching filtered songs:", error);
       setSongs([]);
@@ -122,6 +142,14 @@ export default function WeddingSectionSongsPage() {
         );
         return isDanceSection ? isDanceSong : !isDanceSong;
       });
+    }
+
+    if (isWeddingCategory && isKabolasSection) {
+      baseSongs = baseSongs.filter((song) =>
+        (song.Event || []).some((ev) =>
+          String(ev).toLowerCase().includes("kabol")
+        )
+      );
     }
 
     const beats = new Set<string>();
@@ -173,6 +201,8 @@ export default function WeddingSectionSongsPage() {
     ? "Showing all Frailach/Hora beats."
     : isMealSection
     ? "Showing all other beats for the meal."
+    : isKabolasSection
+    ? "Songs tagged for Kabolath Ponim."
     : `Songs tagged as ${decodedSection}.`;
 
   return (
