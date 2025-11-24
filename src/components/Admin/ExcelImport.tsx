@@ -17,6 +17,7 @@ export default function ExcelImport({
   onSuccess,
 }: ExcelImportProps) {
   const [excelData, setExcelData] = useState<ExcelRow[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
 
   const normalizeRow = (row: Record<string, unknown>): ExcelRow => {
     const normalized: ExcelRow = {};
@@ -68,6 +69,7 @@ export default function ExcelImport({
     }
 
     try {
+      setIsImporting(true);
       const result = await importExcelAction(excelData);
       showToast(result.message, "success");
       setExcelData([]);
@@ -75,6 +77,8 @@ export default function ExcelImport({
     } catch (error) {
       showToast("Failed to import the spreadsheet.", "error");
       console.error("Import Action Error:", error);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -92,14 +96,19 @@ export default function ExcelImport({
         />
         <button
           onClick={handleImportClick}
-          disabled={excelData.length === 0}
-          className={`rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm ${
-            excelData.length > 0
+          disabled={excelData.length === 0 || isImporting}
+          className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition ${
+            excelData.length > 0 && !isImporting
               ? "bg-purple-600 hover:bg-purple-700"
               : "cursor-not-allowed bg-gray-600"
           }`}
         >
-          Import {excelData.length} rows to Firebase
+          {isImporting && (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
+          )}
+          {isImporting
+            ? "Uploading..."
+            : `Import ${excelData.length} rows to Firebase`}
         </button>
       </div>
     </section>

@@ -10,6 +10,8 @@ import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
 import clsx from "clsx";
 import { createCombinedSortComparator } from "@/lib/sortingUtils";
+import { splitBeatValue } from "@/lib/beatUtils";
+import { splitAndClean } from "@/lib/admin-config";
 
 // Song fields included in the search sweep
 const SEARCHABLE_FIELDS: (keyof Song)[] = [
@@ -46,9 +48,11 @@ export default function SearchPage() {
           return {
             id: doc.id,
             ...data,
-            Genre: data.Genre || [],
-            Event: data.Event || [],
-            Season: data.Season || [],
+            Beat: splitBeatValue(data.Beat),
+            Genre: splitAndClean(data.Genre),
+            Event: splitAndClean(data.Event),
+            Season: splitAndClean(data.Season),
+            Theme: splitAndClean(data.Theme),
           } as Song;
         });
         setAllSongs(fetchedSongs);

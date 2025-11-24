@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Song } from "@/types/song";
 import LyricsModal from "./LyricsModal";
 import AddToPlaylistMenu from "@/components/Playlists/AddToPlaylistMenu";
+import { beatDisplayText } from "@/lib/beatUtils";
 
 interface SongCardProps {
   song: Song;
@@ -11,6 +12,7 @@ interface SongCardProps {
 
 export default function SongCard({ song }: SongCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const beatText = beatDisplayText(song.Beat);
 
   return (
     <>
@@ -38,14 +40,14 @@ export default function SongCard({ song }: SongCardProps) {
                   </span>
                 </span>
               ) : null}
-              {song.Beat ? (
+              {beatText ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-400/40 text-cyan-100 px-2.5 py-0.5 text-xs md:text-sm md:px-3 md:py-1">
                   <span className="font-medium text-cyan-200">Beat</span>
                   <span className="text-cyan-400/70" aria-hidden>
                     |
                   </span>
                   <span className="font-semibold text-cyan-300">
-                    {song.Beat}
+                    {beatText}
                   </span>
                 </span>
               ) : null}

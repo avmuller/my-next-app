@@ -10,18 +10,25 @@ import {
   QueryConstraint,
 } from "firebase/firestore";
 import clsx from "clsx";
-import { CakeIcon, MusicalNoteIcon } from "@heroicons/react/24/outline";
+import {
+  CakeIcon,
+  MusicalNoteIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
 import { db } from "@/lib/firebase";
 import { Song } from "@/types/song";
 import SongCard from "@/components/SongCard";
 import CategoryGrid from "@/components/CategoryGrid";
 import { primaryCategories } from "@/data/categories";
+import { beatLabel, splitBeatValue } from "@/lib/beatUtils";
+import { splitAndClean } from "@/lib/admin-config";
 import type { Category } from "@/data/categories";
 
 const weddingLabels = ["wedding", "chatuna", "chasuna", "chassuna", "hatuna"];
 const weddingSubCategories: Category[] = [
   { key: "Meal", label: "Meal", icon: CakeIcon },
   { key: "Dance", label: "Dance", icon: MusicalNoteIcon },
+  { key: "Kabolath Ponim", label: "Kabolath Ponim", icon: SparklesIcon },
 ];
 
 export default function SongsBySubCategory() {
@@ -38,14 +45,10 @@ export default function SongsBySubCategory() {
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>([]);
-  const normalizeBeatLabel = (value?: string | null) => {
-    const trimmed = (value || "").trim();
-    if (!trimmed) return "Other";
-    const lower = trimmed.toLowerCase();
-    if (trimmed.includes(",") || lower.includes("rhythm")) {
-      return "Rhythm Changes";
-    }
-    return trimmed;
+  const getBeatLabelsForSong = (beatValue: Song["Beat"]) => {
+    const beats = splitBeatValue(beatValue);
+    if (beats.length === 0) return ["Other"];
+    return beats.map((beat) => beatLabel(beat));
   };
 
   const [selectedBeat, setSelectedBeat] = useState<string>("ALL");
@@ -59,7 +62,9 @@ export default function SongsBySubCategory() {
         (c) => c.key.toLowerCase() === category.toLowerCase()
       );
       const fieldName = currentCategory?.key || category;
-      const isArrayField = ["Genre", "Event", "Season"].includes(fieldName);
+      const isArrayField = ["Genre", "Event", "Season", "Beat", "Theme"].includes(
+        fieldName
+      );
 
       const constraints: QueryConstraint[] = [];
       if (isArrayField) {
@@ -71,15 +76,17 @@ export default function SongsBySubCategory() {
       const q = query(songsCollectionRef, ...constraints);
       const songSnapshot = await getDocs(q);
       const fetchedSongs: Song[] = songSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          Genre: data.Genre || [],
-          Event: data.Event || [],
-          Season: data.Season || [],
-        } as Song;
-      });
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            Beat: splitBeatValue(data.Beat),
+            Genre: splitAndClean(data.Genre),
+            Event: splitAndClean(data.Event),
+            Season: splitAndClean(data.Season),
+            Theme: splitAndClean(data.Theme),
+          } as Song;
+        });
 
       setSongs(fetchedSongs);
     } catch (error) {
@@ -114,13 +121,15 @@ export default function SongsBySubCategory() {
     }
 
     const beats = new Set<string>();
-    baseSongs.forEach((song) => beats.add(normalizeBeatLabel(song.Beat)));
+    baseSongs.forEach((song) => {
+      getBeatLabelsForSong(song.Beat).forEach((label) => beats.add(label));
+    });
 
     let beatFiltered = baseSongs;
     if (selectedBeat !== "ALL") {
       beatFiltered = beatFiltered.filter((song) => {
-        const beatLabel = normalizeBeatLabel(song.Beat);
-        return beatLabel === selectedBeat;
+        const labels = getBeatLabelsForSong(song.Beat);
+        return labels.includes(selectedBeat);
       });
     }
 

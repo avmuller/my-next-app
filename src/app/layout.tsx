@@ -28,9 +28,7 @@ export default function RootLayout({
           <PlaylistsProvider>
             <div className="mx-auto flex min-h-screen w-full max-w-screen-lg flex-col">
               <Header />
-              {/* Main content area; leaves room for the bottom nav */}
               <main className="flex-grow pb-24 px-1 sm:px-3 md:px-8 lg:px-10">
-                {/* Defer child route rendering until data/components are ready */}
                 <Suspense fallback={<div className="text-center text-gray-400 p-8">Loading...</div>}>
                   {children}
                 </Suspense>

@@ -21,6 +21,7 @@ import {
   FIELDS_FOR_UNIQUE_FETCH,
   initialSongState,
 } from "@/lib/admin-config";
+import { splitBeatValue } from "@/lib/beatUtils";
 
 // Interface for normalized form data returned from server to client
 interface FormReadySong extends SongForm {
@@ -33,9 +34,31 @@ export const getAdminInitialData = async () => {
   await requireAdminUser();
   const songsCollection = collection(db, "songs");
   const songSnapshot = await getDocs(songsCollection);
-  const allData: Song[] = songSnapshot.docs.map(
-    (doc) => ({ id: doc.id, ...doc.data() } as Song)
-  );
+  const allData: Song[] = songSnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title || "",
+      Beat: splitBeatValue(data.Beat),
+      Key: data.Key || "",
+      Theme: Array.isArray(data.Theme)
+        ? data.Theme
+        : splitAndClean(data.Theme ?? ""),
+      Composer: data.Composer || "",
+      Singer: data.Singer || "",
+      hasidut: data.hasidut || "",
+      Lyrics: data.Lyrics || "",
+      Season: Array.isArray(data.Season)
+        ? data.Season
+        : splitAndClean(data.Season ?? ""),
+      Genre: Array.isArray(data.Genre)
+        ? data.Genre
+        : splitAndClean(data.Genre ?? ""),
+      Event: Array.isArray(data.Event)
+        ? data.Event
+        : splitAndClean(data.Event ?? ""),
+    } as Song;
+  });
 
   // Logic to build unique categories for autocomplete
   const uniqueData: Record<
@@ -87,9 +110,8 @@ export const fetchSongForEditAction = async (
     const formReadyData: FormReadySong = {
       id: id,
       title: data.title || initialSongState.title,
-      Beat: data.Beat || initialSongState.Beat,
+      Beat: splitBeatValue(data.Beat).join(", "),
       Key: data.Key || initialSongState.Key,
-      Theme: data.Theme || initialSongState.Theme,
       Composer: data.Composer || initialSongState.Composer,
       Singer: data.Singer || initialSongState.Singer,
       hasidut: data.hasidut || initialSongState.hasidut,
@@ -104,15 +126,18 @@ export const fetchSongForEditAction = async (
       Event: Array.isArray(data.Event)
         ? data.Event.join(", ")
         : data.Event || "",
+      Theme: Array.isArray(data.Theme)
+        ? data.Theme.join(", ")
+        : data.Theme || "",
     } as unknown as FormReadySong;
 
     return formReadyData;
   }
   return null;
-};
+  };
 
 // Action to add or update a song (Server Mutation)
-// NOTE: SongForm receives string fields for array data (Season, Genre, Event)
+// NOTE: SongForm receives string fields for array data (Season, Genre, Event, Theme, Beat)
 export const saveSongAction = async (
   songData: SongForm,
   editingId: string | null
@@ -122,16 +147,16 @@ export const saveSongAction = async (
   // Re-process string fields to arrays using splitAndClean utility
   const processedSongData = {
     title: songData.title.trim(),
-    Beat: songData.Beat.trim(),
+    Beat: splitBeatValue(songData.Beat),
     Key: songData.Key.trim(),
-    Theme: songData.Theme,
+    Theme: splitAndClean(songData.Theme),
     Composer: songData.Composer,
     Singer: songData.Singer,
     hasidut: songData.hasidut,
     Lyrics: songData.Lyrics,
-    Season: splitAndClean(songData.Season as unknown as string),
-    Genre: splitAndClean(songData.Genre as unknown as string),
-    Event: splitAndClean(songData.Event as unknown as string),
+    Season: splitAndClean(songData.Season),
+    Genre: splitAndClean(songData.Genre),
+    Event: splitAndClean(songData.Event),
   };
 
   if (editingId) {
@@ -162,9 +187,9 @@ export const importExcelAction = async (excelData: ExcelRow[]) => {
       // but the cleaning (splitAndClean) is performed here for final verification.
       const songData: Omit<Song, "id"> = {
         title: getValue("Song") || getValue("title"),
-        Beat: getValue("Beat"),
+        Beat: splitBeatValue(row["Beat"] ?? ""),
         Key: getValue("Key"),
-        Theme: getValue("Theme"),
+        Theme: splitAndClean(row["Theme"] ?? ""),
         Composer: getValue("Composer"),
         Singer: getValue("Singer"),
         Season: splitAndClean(row["Season"] ?? ""),

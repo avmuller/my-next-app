@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Song } from "@/types/song";
 import { deleteSongAction } from "@/app/admin/actions";
 import { ToastType } from "./AdminToast";
+import { beatDisplayText, splitBeatValue } from "@/lib/beatUtils";
 
 interface SongManagerProps {
   initialAllSongs: Song[];
@@ -50,11 +51,11 @@ export default function SongManager({
         item.Singer,
         item.Composer,
         item.Key,
-        item.Beat,
-        item.Theme,
+        ...splitBeatValue(item.Beat),
+        ...(Array.isArray(item.Theme) ? item.Theme : [item.Theme]),
       ]
         .filter(Boolean)
-        .map((value) => value!.toString().toLowerCase());
+        .map((value) => String(value).toLowerCase());
       return haystacks.some((value) => value.includes(term));
     });
   }, [sortedSongs, songSearchTerm]);
@@ -148,7 +149,7 @@ export default function SongManager({
                         Key: {song.Key || "—"}
                       </span>
                       <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1">
-                        Beat: {song.Beat || "—"}
+                        Beat: {beatDisplayText(song.Beat) || "—"}
                       </span>
                     </div>
                   </div>

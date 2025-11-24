@@ -6,11 +6,11 @@
 export interface Song {
   id: string;
   title: string;
-  Beat: string;
+  Beat: string[];
   Key: string;
   Genre: string[];
   Event: string[];
-  Theme: string;
+  Theme: string[];
   Composer: string;
   Singer: string;
   Season: string[];

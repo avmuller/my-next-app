@@ -6,13 +6,17 @@ export const SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE: (keyof Song)[] = [
   "Singer",
   "Composer",
   "Key",
-  "Beat",
-  "Theme",
   "hasidut",
 ];
 
 // Fields that are arrays on the Song object
-export const MULTI_VALUE_FIELDS: (keyof Song)[] = ["Genre", "Event", "Season"];
+export const MULTI_VALUE_FIELDS: (keyof Song)[] = [
+  "Genre",
+  "Event",
+  "Season",
+  "Theme",
+  "Beat",
+];
 
 // Combined list of fields we query across to collect unique values
 export const FIELDS_FOR_UNIQUE_FETCH = [
@@ -23,11 +27,11 @@ export const FIELDS_FOR_UNIQUE_FETCH = [
 // Initial state for the admin form
 export const initialSongState: SongForm = {
   title: "",
-  Beat: "",
+  Beat: [],
   Key: "",
   Genre: [],
   Event: [],
-  Theme: "",
+  Theme: [],
   Composer: "",
   Singer: "",
   Season: [],
@@ -39,7 +43,10 @@ export const initialSongState: SongForm = {
 export const splitAndClean: (value: string | string[]) => string[] = (
   value
 ) => {
-  if (Array.isArray(value)) return value.filter((v) => v && v.trim() !== "");
+  if (Array.isArray(value))
+    return value
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter((v) => v.length > 0);
   if (typeof value !== "string") return [];
 
   return value

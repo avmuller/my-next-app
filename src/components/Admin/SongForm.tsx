@@ -9,9 +9,11 @@ import {
   initialSongState,
   SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE,
   MULTI_VALUE_FIELDS,
+  splitAndClean,
 } from "@/lib/admin-config";
 import { saveSongAction } from "@/app/admin/actions";
 import { ToastType } from "./AdminToast";
+import { splitBeatValue } from "@/lib/beatUtils";
 
 interface FormReadySong extends SongForm {
   id: string;
@@ -23,14 +25,28 @@ type SongFormUI = Omit<SongForm, MultiValueField> &
 
 type SongLike = Song | FormReadySong;
 
+const AUTOCOMPLETE_FIELDS: (keyof Song)[] = [
+  ...SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE,
+  ...MULTI_VALUE_FIELDS,
+];
+
 const createEmptyForm = (): SongFormUI => {
-  const { Genre: _g, Event: _e, Season: _s, ...rest } = initialSongState;
+  const {
+    Genre: _g,
+    Event: _e,
+    Season: _s,
+    Theme: _t,
+    Beat: _b,
+    ...rest
+  } = initialSongState;
   return {
     ...rest,
     id: "",
     Genre: "",
     Event: "",
     Season: "",
+    Theme: "",
+    Beat: "",
   };
 };
 
@@ -45,14 +61,18 @@ const normalizeToUIState = (songData: SongLike | null): SongFormUI => {
     const incoming = songData[key as keyof Song];
     if (incoming == null) return;
 
-    if (MULTI_VALUE_FIELDS.includes(key as keyof Song)) {
-      filled[key as MultiValueField] = Array.isArray(incoming)
-        ? incoming.join(", ")
-        : String(incoming);
-    } else {
-      filled[key] = String(incoming);
-    }
-  });
+      if (MULTI_VALUE_FIELDS.includes(key as keyof Song)) {
+        if (key === "Beat") {
+          filled[key as MultiValueField] = splitBeatValue(incoming).join(", ");
+        } else {
+          filled[key as MultiValueField] = Array.isArray(incoming)
+            ? incoming.join(", ")
+            : String(incoming);
+        }
+      } else {
+        filled[key] = String(incoming);
+      }
+    });
 
   return filled;
 };
@@ -133,10 +153,11 @@ export default function SongForm({
     (Object.keys(ui) as Array<keyof SongFormUI>).forEach((key) => {
       if (MULTI_VALUE_FIELDS.includes(key as keyof Song)) {
         const raw = ui[key] as string;
-        out[key] = raw
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
+        if (key === "Beat") {
+          out[key] = splitBeatValue(raw);
+        } else {
+          out[key] = splitAndClean(raw);
+        }
       } else {
         out[key] = ui[key];
       }
@@ -170,9 +191,7 @@ export default function SongForm({
       <form onSubmit={handleManualSubmit} className="grid grid-cols-2 gap-4">
         {formFields.map((key) => {
           const isMultiValue = MULTI_VALUE_FIELDS.includes(key as keyof Song);
-          const isAutocomplete = SINGLE_VALUE_FIELDS_FOR_AUTOCOMPLETE.includes(
-            key as keyof Song
-          );
+          const isAutocomplete = AUTOCOMPLETE_FIELDS.includes(key as keyof Song);
           const isRequired = key === "title";
           const value = song[key] || "";
 

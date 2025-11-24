@@ -2,22 +2,23 @@
 // Purpose: Sorting helpers for Song lists shared across pages.
 // Provides a combined comparator for Beat/Key with title fallback.
 import { Song } from "@/types/song";
+import { isRhythmChanges, splitBeatValue } from "@/lib/beatUtils";
 
 const RHYTHM_CHANGES_TAG = "Rhythm Changes";
 
-// Helper 1: מחזירה ערך מיון עבור Beat (ממקמת Rhythm Changes בסוף)
-export const getBeatSortValue = (beat: string) => {
-  if (beat && typeof beat === "string" && beat.includes(",")) {
-    // הערך הגבוה ביותר אלפביתית כדי למקם אחרון
+// Helper 1: compute a sortable beat value (Rhythm Changes variants sink to the end)
+export const getBeatSortValue = (beat: string | string[]) => {
+  if (isRhythmChanges(beat)) {
     return "ZZZZ" + RHYTHM_CHANGES_TAG;
   }
-  return beat || "";
+  const first = splitBeatValue(beat)[0] || "";
+  return first;
 };
 
 /**
- * פונקציית מיון המשלבת לוגיקה היררכית: (Beat > Key > Title).
- * @param sortByBeat - האם למיין לפי Beat ברמה הראשונה.
- * @param sortByKey - האם למיין לפי Key ברמה השנייה.
+ * Combined comparator with optional Beat/Key weighting, falling back to title.
+ * @param sortByBeat - whether Beat is the primary sort key.
+ * @param sortByKey - whether Key is a secondary sort key.
  */
 export const createCombinedSortComparator = (
   sortByBeat: boolean,
@@ -39,13 +40,12 @@ export const createCombinedSortComparator = (
       const keyA = a.Key || "";
       const keyB = b.Key || "";
 
-      // מיון אלפביתי רגיל (A-B-C)
       if (keyA !== keyB) {
         return keyA.localeCompare(keyB, "en");
       }
     }
 
-    // --- Level 3: Default (Title א–ב) ---
+    // --- Level 3: Default (Title)
     return a.title.localeCompare(b.title, "he");
   };
 };
