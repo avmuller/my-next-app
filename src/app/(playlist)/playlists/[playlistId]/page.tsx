@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import SongCard from "@/components/SongCard";
 import type { Song } from "@/types/song";
+import { useParams } from "next/navigation";
 
 interface PlaylistDetail {
   id: string;
@@ -16,12 +17,8 @@ interface PlaylistResponse {
   songs: Song[];
 }
 
-export default function PlaylistDetailPage({
-  params,
-}: {
-  params: Promise<{ playlistId: string }>;
-}) {
-  const { playlistId } = use(params);
+export default function PlaylistDetailPage() {
+  const { playlistId } = useParams<{ playlistId: string }>();
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +92,11 @@ export default function PlaylistDetailPage({
           <div className="flex items-center gap-3 text-sm text-gray-300">
             <div className="flex items-center gap-2 rounded-full border border-teal-400/30 px-4 py-1.5 text-teal-100 bg-teal-500/10">
               <span aria-hidden>
-                <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-4 w-4"
+                >
                   <path d="M9 4v10.563A3.497 3.497 0 007.5 14a3.5 3.5 0 103.5 3.5V8h6V4H9z" />
                 </svg>
               </span>
@@ -103,11 +104,17 @@ export default function PlaylistDetailPage({
               <span className="text-xs uppercase tracking-wide">Songs</span>
             </div>
             <span className="hidden md:inline text-gray-500">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-1.5 w-1.5">
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-1.5 w-1.5"
+              >
                 <circle cx="12" cy="12" r="12" />
               </svg>
             </span>
-            <p className="text-xs md:text-sm text-gray-400">Curated selection</p>
+            <p className="text-xs md:text-sm text-gray-400">
+              Curated selection
+            </p>
           </div>
         </div>
       </div>
