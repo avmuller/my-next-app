@@ -11,6 +11,7 @@ import React, {
 import type { PlaylistSummary } from "@/types/playlist";
 import { useAuth } from "@/components/Auth/AuthProvider";
 
+//context value type
 interface PlaylistsContextValue {
   playlists: PlaylistSummary[];
   loading: boolean;
@@ -21,8 +22,10 @@ interface PlaylistsContextValue {
   removeSong: (playlistId: string, songId: string) => Promise<void>;
 }
 
+//context creation
 const PlaylistsContext = createContext<PlaylistsContextValue | null>(null);
 
+//function to fetch JSON with error handling
 const fetchJSON = async <T,>(input: RequestInfo, init?: RequestInit) => {
   const response = await fetch(input, {
     ...init,
@@ -54,12 +57,16 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getAuthHeaders = useCallback(async (): Promise<HeadersInit | undefined> => {
+  // function to get authorization headers
+  const getAuthHeaders = useCallback(async (): Promise<
+    HeadersInit | undefined
+  > => {
     if (!user) return undefined;
     const token = await user.getIdToken();
     return { Authorization: `Bearer ${token}` };
   }, [user]);
 
+  //function to load playlists
   const load = useCallback(async () => {
     if (!user) {
       setPlaylists([]);
@@ -112,8 +119,7 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
     requireAuth();
     setPlaylists((prev) =>
       prev.map((playlist) =>
-        playlist.id === playlistId &&
-        !playlist.songIds.includes(songId)
+        playlist.id === playlistId && !playlist.songIds.includes(songId)
           ? { ...playlist, songIds: [...playlist.songIds, songId] }
           : playlist
       )
@@ -193,6 +199,9 @@ export function PlaylistsProvider({ children }: { children: React.ReactNode }) {
 
 export const usePlaylistsContext = () => {
   const context = useContext(PlaylistsContext);
-  if (!context) throw new Error("usePlaylistsContext must be used inside PlaylistsProvider");
+  if (!context)
+    throw new Error(
+      "usePlaylistsContext must be used inside PlaylistsProvider"
+    );
   return context;
 };

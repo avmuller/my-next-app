@@ -30,6 +30,8 @@ export default async function SubCategoriesPage({
   const currentCategory = cleanCategories.find(
     (c) => c.key.toLowerCase() === category.toLowerCase()
   );
+  const isEventCategory =
+    currentCategory?.key.toLowerCase() === "event";
 
   const fieldName = currentCategory?.key;
   categoryTitle = currentCategory?.label || "Unknown category";
@@ -52,6 +54,15 @@ export default async function SubCategoriesPage({
   // Remove empty values and sort for a consistent UI
   const filteredSubCategoriesStrings = subCategories
     .filter((sub) => sub && sub.trim().length > 0)
+    .filter((sub) => {
+      if (!isEventCategory) return true;
+      const normalized = sub.trim().toLowerCase();
+      const isKabolasPonim =
+        normalized.includes("kabol") &&
+        (normalized.includes("ponim") || normalized.includes("panim"));
+      const isChupah = normalized.includes("chup");
+      return !isKabolasPonim && !isChupah;
+    })
     .sort((a, b) => a.localeCompare(b, "en"));
 
   const categoriesToRender: Category[] = filteredSubCategoriesStrings.map(

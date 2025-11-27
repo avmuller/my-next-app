@@ -19,6 +19,15 @@ import { splitAndClean } from "@/lib/admin-config";
 
 const weddingLabels = ["wedding", "chatuna", "chasuna", "chassuna", "hatuna"];
 const danceBeatTriggers = ["frailach", "freilach", "hora"];
+const kabolasQueryVariants = [
+  "Kabolath Ponim",
+  "Kabolas Ponim",
+  "Kabbalat Panim",
+  "Kabbalas Panim",
+  "Kabalat Panim",
+  "Kabolat Panim",
+];
+const chupahQueryVariants = ["Chupah", "Chupa", "Chuppah", "Bedeken", "Badeken"];
 const getBeatLabelsForSong = (beatValue: Song["Beat"]) => {
   const beats = splitBeatValue(beatValue);
   if (beats.length === 0) return ["Other"];
@@ -49,7 +58,12 @@ export default function WeddingSectionSongsPage() {
     "kabolath",
     "kabolas",
     "kabbolas",
+    "kabbalat",
+    "kabbalas",
   ].some((marker) => normalizedSection.includes(marker));
+  const isChupahSection = ["chupah", "chupa", "chuppah"].some((marker) =>
+    normalizedSection.includes(marker)
+  );
 
   const [queryText, setQueryText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -95,10 +109,18 @@ export default function WeddingSectionSongsPage() {
       const primarySongs = await fetchByValue(decodedSub);
       let mergedSongs = [...primarySongs];
 
-      if (isWeddingCategory && isKabolasSection) {
-        const kabolasSongs = await fetchByValue(decodedSection);
+      if (isWeddingCategory && (isKabolasSection || isChupahSection)) {
+        const variantList = isKabolasSection
+          ? kabolasQueryVariants
+          : chupahQueryVariants;
+        const variants = Array.from(
+          new Set<string>([decodedSection, ...variantList])
+        );
+        const extraLists = await Promise.all(
+          variants.map((variant) => fetchByValue(variant))
+        );
         const byId: Record<string, Song> = {};
-        [...primarySongs, ...kabolasSongs].forEach((song) => {
+        [...primarySongs, ...extraLists.flat()].forEach((song) => {
           byId[song.id] = song;
         });
         mergedSongs = Object.values(byId);
@@ -146,9 +168,27 @@ export default function WeddingSectionSongsPage() {
 
     if (isWeddingCategory && isKabolasSection) {
       baseSongs = baseSongs.filter((song) =>
-        (song.Event || []).some((ev) =>
-          String(ev).toLowerCase().includes("kabol")
-        )
+        (song.Event || []).some((ev) => {
+          const lower = String(ev).toLowerCase();
+          const hasFace = lower.includes("ponim") || lower.includes("panim");
+          const hasRoot = ["kabol", "kabal", "kabbal"].some((marker) =>
+            lower.includes(marker)
+          );
+          return hasRoot && hasFace;
+        })
+      );
+    }
+    if (isWeddingCategory && isChupahSection) {
+      baseSongs = baseSongs.filter((song) =>
+        (song.Event || []).some((ev) => {
+          const lower = String(ev).toLowerCase();
+          return (
+            lower.includes("chup") ||
+            lower.includes("chupah") ||
+            lower.includes("chuppah") ||
+            lower.includes("bedek")
+          );
+        })
       );
     }
 
@@ -188,6 +228,8 @@ export default function WeddingSectionSongsPage() {
     sortMode,
     isDanceSection,
     isMealSection,
+    isKabolasSection,
+    isChupahSection,
     isWeddingCategory,
   ]);
 
@@ -203,6 +245,8 @@ export default function WeddingSectionSongsPage() {
     ? "Showing all other beats for the meal."
     : isKabolasSection
     ? "Songs tagged for Kabolath Ponim."
+    : isChupahSection
+    ? "Songs tagged for Chupah."
     : `Songs tagged as ${decodedSection}.`;
 
   return (

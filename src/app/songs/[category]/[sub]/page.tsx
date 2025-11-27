@@ -26,6 +26,7 @@ import type { Category } from "@/data/categories";
 
 const weddingLabels = ["wedding", "chatuna", "chasuna", "chassuna", "hatuna"];
 const weddingSubCategories: Category[] = [
+  { key: "Chupah", label: "Chupah", icon: SparklesIcon },
   { key: "Meal", label: "Meal", icon: CakeIcon },
   { key: "Dance", label: "Dance", icon: MusicalNoteIcon },
   { key: "Kabolath Ponim", label: "Kabolath Ponim", icon: SparklesIcon },
